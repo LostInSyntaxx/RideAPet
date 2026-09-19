@@ -2092,7 +2092,7 @@ function UI.mount()
     WbTitle.Size = UDim2.new(1, -20, 0, 20)
     WbTitle.Position = UDim2.new(0, 14, 0, 8)
     WbTitle.BackgroundTransparency = 1
-    WbTitle.Text = "Discord Webhook"
+    WbTitle.Text = "📨  Discord Webhook"
     WbTitle.TextColor3 = AppConfig.AccentBlue
     WbTitle.TextSize = AppConfig.TextHeader
     WbTitle.Font = Enum.Font.GothamBold
@@ -2125,7 +2125,7 @@ function UI.mount()
     WbEnableBtn.Size = UDim2.new(0.33, -10, 0, 28)
     WbEnableBtn.Position = UDim2.new(0, 10, 0, 72)
     WbEnableBtn.BackgroundColor3 = (NS.Webhook and NS.Webhook.Config.Enabled) and AppConfig.AccentGreen or AppConfig.RecessedBg
-    WbEnableBtn.Text = (NS.Webhook and NS.Webhook.Config.Enabled) and "ON" or "OFF"
+    WbEnableBtn.Text = (NS.Webhook and NS.Webhook.Config.Enabled) and "🔔 ON" or "🔕 OFF"
     WbEnableBtn.TextColor3 = (NS.Webhook and NS.Webhook.Config.Enabled) and Color3.fromRGB(10, 20, 15) or AppConfig.TextMuted
     WbEnableBtn.TextSize = AppConfig.TextCaption
     WbEnableBtn.Font = Enum.Font.GothamBold
@@ -2137,12 +2137,12 @@ function UI.mount()
         NS.Webhook.Config.Enabled = not NS.Webhook.Config.Enabled
         if NS.Webhook.Config.Enabled then
             UI.setButtonDefault(WbEnableBtn, AppConfig.AccentGreen)
-            WbEnableBtn.Text = "ON"
+            WbEnableBtn.Text = "🔔 ON"
             WbEnableBtn.TextColor3 = Color3.fromRGB(10, 20, 15)
             updateStatus("Webhook: ON", AppConfig.AccentGreen)
         else
             UI.setButtonDefault(WbEnableBtn, AppConfig.RecessedBg)
-            WbEnableBtn.Text = "OFF"
+            WbEnableBtn.Text = "🔕 OFF"
             WbEnableBtn.TextColor3 = AppConfig.TextMuted
             updateStatus("Webhook: OFF", AppConfig.TextSecondary)
         end
@@ -2152,7 +2152,7 @@ function UI.mount()
     WbTestBtn.Size = UDim2.new(0.33, -10, 0, 28)
     WbTestBtn.Position = UDim2.new(0.33, 0, 0, 72)
     WbTestBtn.BackgroundColor3 = AppConfig.RecessedBg
-    WbTestBtn.Text = "Test"
+    WbTestBtn.Text = "🧪 Test"
     WbTestBtn.TextColor3 = AppConfig.AccentBlue
     WbTestBtn.TextSize = AppConfig.TextCaption
     WbTestBtn.Font = Enum.Font.GothamBold
@@ -2165,10 +2165,10 @@ function UI.mount()
             updateStatus("Enter URL first", AppConfig.AccentRed)
             return
         end
-        WbTestBtn.Text = "Sending..."
+        WbTestBtn.Text = "⏳ Sending..."
         local ok = NS.Webhook.Test()
         task.wait(0.5)
-        WbTestBtn.Text = "Test"
+        WbTestBtn.Text = "🧪 Test"
         if ok then
             updateStatus("Test sent! Check Discord", AppConfig.AccentGreen)
         else
@@ -2180,7 +2180,7 @@ function UI.mount()
     WbRareOnlyBtn.Size = UDim2.new(0.33, -10, 0, 28)
     WbRareOnlyBtn.Position = UDim2.new(0.66, 0, 0, 72)
     WbRareOnlyBtn.BackgroundColor3 = (NS.Webhook and NS.Webhook.Config.NotifyRareOnly) and AppConfig.AccentGold or AppConfig.RecessedBg
-    WbRareOnlyBtn.Text = (NS.Webhook and NS.Webhook.Config.NotifyRareOnly) and " Rare Only" or "Rare: OFF"
+    WbRareOnlyBtn.Text = (NS.Webhook and NS.Webhook.Config.NotifyRareOnly) and "🌟 Rare Only" or "🌟 Rare: OFF"
     WbRareOnlyBtn.TextColor3 = (NS.Webhook and NS.Webhook.Config.NotifyRareOnly) and Color3.fromRGB(15, 15, 20) or AppConfig.TextMuted
     WbRareOnlyBtn.TextSize = AppConfig.TextCaption
     WbRareOnlyBtn.Font = Enum.Font.GothamBold
@@ -2192,11 +2192,11 @@ function UI.mount()
         NS.Webhook.Config.NotifyRareOnly = not NS.Webhook.Config.NotifyRareOnly
         if NS.Webhook.Config.NotifyRareOnly then
             UI.setButtonDefault(WbRareOnlyBtn, AppConfig.AccentGold)
-            WbRareOnlyBtn.Text = "Rare Only"
+            WbRareOnlyBtn.Text = "🌟 Rare Only"
             WbRareOnlyBtn.TextColor3 = Color3.fromRGB(15, 15, 20)
         else
             UI.setButtonDefault(WbRareOnlyBtn, AppConfig.RecessedBg)
-            WbRareOnlyBtn.Text = "Rare: OFF"
+            WbRareOnlyBtn.Text = "🌟 Rare: OFF"
             WbRareOnlyBtn.TextColor3 = AppConfig.TextMuted
         end
     end)
