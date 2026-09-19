@@ -1,19 +1,22 @@
 -- Webhook.lua — Discord notification (Legacy Embed)
-local NS = getgenv().EggsESP
-local AppConfig  = NS.Config
-local S          = NS.Services
-local StateStore = NS.StateStore
-local Utils      = NS.Utils
+local NS = getgenv().EggsESP or getgenv().LuxuryXHUB or {}
+getgenv().EggsESP = NS
+getgenv().LuxuryXHUB = NS
+
+local AppConfig  = NS.Config or { Version = "1.0.0" }
+local S          = NS.Services or {}
+local StateStore = NS.StateStore or NS.State or {}
+local Utils      = NS.Utils or {}
 
 local Webhook = {}
 
 Webhook.Config = {
-    Enabled   = false,
-    Url       = "",
-    Username  = "LuxuryXHUB",
-    AvatarUrl = "",
-    NotifyRareOnly = false,
-    IncludeStats   = true,
+    Enabled            = false,
+    Url                = "",
+    Username           = "LuxuryXHUB",
+    AvatarUrl          = "",
+    NotifyRareOnly     = false,
+    IncludeStats       = true,
     MinIntervalSeconds = 2,
 }
 
@@ -22,9 +25,12 @@ local sentCount = 0
 local errorCount = 0
 
 local function getPlayerInfo()
-    local lp = S.LocalPlayer
+    local lp = (S and S.LocalPlayer) or (game:GetService("Players") and game:GetService("Players").LocalPlayer)
     if not lp then return "Unknown" end
-    return string.format("%s (@%s)\nID: `%d`", lp.DisplayName, lp.Name, lp.UserId)
+    local displayName = lp.DisplayName or "Unknown"
+    local name = lp.Name or "Unknown"
+    local userId = tostring(lp.UserId or 0)
+    return string.format("%s (@%s)\nID: `%s`", displayName, name, userId)
 end
 
 local function getTimeString()
@@ -32,23 +38,60 @@ local function getTimeString()
 end
 
 local function getHttpRequest()
-    return (syn and syn.request)
-        or (http and http.request)
-        or (fluxus and fluxus.request)
-        or (request)
-        or http_request
+    if syn and type(syn.request) == "function" then return syn.request end
+    if http and type(http.request) == "function" then return http.request end
+    if fluxus and type(fluxus.request) == "function" then return fluxus.request end
+
+    local genv = (getgenv and getgenv()) or _G
+    if genv then
+        if type(genv.request) == "function" then return genv.request end
+        if type(genv.http_request) == "function" then return genv.http_request end
+        if genv.syn and type(genv.syn.request) == "function" then return genv.syn.request end
+        if genv.http and type(genv.http.request) == "function" then return genv.http.request end
+        if genv.fluxus and type(genv.fluxus.request) == "function" then return genv.fluxus.request end
+    end
+
+    if typeof and typeof(request) == "function" then return request end
+    if typeof and typeof(http_request) == "function" then return http_request end
+
+    local ok1, r1 = pcall(function() return request end)
+    if ok1 and type(r1) == "function" then return r1 end
+
+    local ok2, r2 = pcall(function() return http_request end)
+    if ok2 and type(r2) == "function" then return r2 end
+
+    return nil
 end
 
-function Webhook.Send(payload)
-    if not Webhook.Config.Enabled then return false, "Disabled" end
-    if Webhook.Config.Url == "" then return false, "No URL" end
+local function sanitizeUrl(url)
+    if not url or type(url) ~= "string" then return "" end
+    return url:match("^%s*(.-)%s*$") or ""
+end
 
-    local now = os.clock()
-    if (now - lastSentAt) < Webhook.Config.MinIntervalSeconds then
-        return false, "Rate limited"
+function Webhook.Send(payload, isDirect)
+    if not Webhook.Config.Enabled then
+        return false, "Disabled"
     end
-    lastSentAt = now
 
+    local url = sanitizeUrl(Webhook.Config.Url)
+    if url == "" then
+        return false, "No URL"
+    end
+    if not (url:find("^https?://") or url:find("^http://")) then
+        return false, "Invalid URL (must start with http:// or https://)"
+    end
+
+    -- Rate limiting: wait remaining interval if called rapidly, unless isDirect is true
+    local now = os.clock()
+    local elapsed = now - lastSentAt
+    if elapsed < Webhook.Config.MinIntervalSeconds then
+        if not isDirect then
+            task.wait(Webhook.Config.MinIntervalSeconds - elapsed)
+        end
+    end
+    lastSentAt = os.clock()
+
+    payload = payload or {}
     payload.username = payload.username or Webhook.Config.Username
     if Webhook.Config.AvatarUrl ~= "" and not payload.avatar_url then
         payload.avatar_url = Webhook.Config.AvatarUrl
@@ -57,19 +100,48 @@ function Webhook.Send(payload)
     local httpRequest = getHttpRequest()
     if not httpRequest then
         errorCount = errorCount + 1
-        return false, "No HTTP function"
+        return false, "Executor does not support HTTP requests"
     end
 
     local ok, err = pcall(function()
-        local body = game:GetService("HttpService"):JSONEncode(payload)
-        local resp = httpRequest({
-            Url = Webhook.Config.Url,
-            Method = "POST",
-            Headers = { ["Content-Type"] = "application/json" },
-            Body = body,
-        })
-        if resp and resp.StatusCode and resp.StatusCode >= 400 then
-            error("HTTP " .. tostring(resp.StatusCode) .. ": " .. tostring(resp.Body))
+        local httpService = game:GetService("HttpService")
+        local body = httpService:JSONEncode(payload)
+
+        local headers = {
+            ["Content-Type"] = "application/json",
+            ["User-Agent"]   = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            ["Accept"]       = "application/json",
+        }
+
+        local req = {
+            Url     = url,
+            url     = url,
+            Method  = "POST",
+            method  = "POST",
+            Headers = headers,
+            headers = headers,
+            Body    = body,
+            body    = body,
+        }
+
+        local resp = httpRequest(req)
+        if not resp then
+            error("No response from HTTP request")
+        end
+
+        local statusCode = nil
+        local respBody = ""
+        if type(resp) == "table" then
+            statusCode = resp.StatusCode or resp.status_code or resp.statusCode or resp.Status
+            respBody = tostring(resp.Body or resp.body or "")
+        end
+
+        if type(statusCode) == "string" then
+            statusCode = tonumber(statusCode:match("^(%d+)")) or statusCode
+        end
+
+        if type(statusCode) == "number" and (statusCode < 200 or statusCode >= 300) then
+            error("HTTP " .. tostring(statusCode) .. (respBody ~= "" and (": " .. respBody) or ""))
         end
     end)
 
@@ -79,33 +151,37 @@ function Webhook.Send(payload)
     else
         errorCount = errorCount + 1
         warn("[Webhook] Send failed: " .. tostring(err))
-        return false, err
+        return false, tostring(err)
     end
 end
 
 -- ⭐ MAIN — แจ้งเตือนตอนเก็บไข่ได้ (Legacy Embed)
 function Webhook.NotifyEggCollected(eggName, isRare)
-    if not Webhook.Config.Enabled then return false end
+    if not Webhook.Config.Enabled then return false, "Disabled" end
     if Webhook.Config.NotifyRareOnly and not isRare then
         return false, "Skipped (not rare)"
     end
 
+    local safeEggName = (eggName and tostring(eggName) ~= "") and tostring(eggName) or "Egg"
     local color = isRare and 0xFFD700 or 0x00E676
     local title = isRare and "🌟 Rare Egg Collected!" or "🥚 Egg Collected!"
 
     local fields = {
-        { name = "🥚 Egg", value = "**" .. eggName .. "**", inline = true },
+        { name = "🥚 Egg", value = "**" .. safeEggName .. "**", inline = true },
         { name = "⏰ Time", value = getTimeString(), inline = true },
         { name = "👤 Player", value = getPlayerInfo(), inline = false },
     }
 
     if Webhook.Config.IncludeStats then
-        local elapsed = os.time() - StateStore.sessionStartTime
+        local st = NS.StateStore or NS.State or StateStore
+        local startTime = (st and st.sessionStartTime) or os.time()
+        local totalEggs = (st and st.totalEggsCollected) or 0
+        local elapsed = math.max(0, os.time() - startTime)
         local mins = math.floor(elapsed / 60)
         local secs = elapsed % 60
         table.insert(fields, {
             name = "📊 Session Total",
-            value = tostring(StateStore.totalEggsCollected) .. " eggs",
+            value = tostring(totalEggs) .. " eggs",
             inline = true
         })
         table.insert(fields, {
@@ -115,6 +191,8 @@ function Webhook.NotifyEggCollected(eggName, isRare)
         })
     end
 
+    local version = (NS.Config and NS.Config.Version) or (AppConfig and AppConfig.Version) or "1.0.0"
+
     return Webhook.Send({
         embeds = {
             {
@@ -122,7 +200,7 @@ function Webhook.NotifyEggCollected(eggName, isRare)
                 color = color,
                 fields = fields,
                 timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ"),
-                footer = { text = "LuxuryXHUB v" .. AppConfig.Version }
+                footer = { text = "LuxuryXHUB v" .. tostring(version) }
             }
         }
     })
@@ -133,7 +211,9 @@ function Webhook.Test()
     Webhook.Config.Enabled = true
     lastSentAt = 0
 
-    local ok = Webhook.Send({
+    local version = (NS.Config and NS.Config.Version) or (AppConfig and AppConfig.Version) or "1.0.0"
+
+    local ok, err = Webhook.Send({
         embeds = {
             {
                 title = "✅ Webhook Connected",
@@ -144,13 +224,13 @@ function Webhook.Test()
                     { name = "⏰ Time", value = getTimeString(), inline = true },
                 },
                 timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ"),
-                footer = { text = "LuxuryXHUB v" .. AppConfig.Version },
+                footer = { text = "LuxuryXHUB v" .. tostring(version) },
             }
         }
-    })
+    }, true)
 
     Webhook.Config.Enabled = savedEnabled
-    return ok
+    return ok, err
 end
 
 function Webhook.GetStats()
@@ -158,3 +238,4 @@ function Webhook.GetStats()
 end
 
 NS.Webhook = Webhook
+return Webhook

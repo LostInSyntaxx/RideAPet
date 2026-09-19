@@ -28,8 +28,8 @@
 -- └─────────────────────────────────────────────────────────────────┘
 
 local CONFIG = {
-    BASE_URL    = "https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/v1.0.5/src/",
-    VERSION_URL = "https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/v1.0.5/version.txt",
+    BASE_URL    = "https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/main/src/",
+    VERSION_URL = "https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/main/version.txt",
     CACHE_DIR   = "LuxuryXHUB_cache",
 
     USE_DISK_CACHE = true,
@@ -38,30 +38,30 @@ local CONFIG = {
 
     -- ── Modules (load order matters) ──────────────────────────────
     MODULES = {
-    "LoadingScreen",
-    "Config",
-    "Services",
-    "State",
-    "Utils",
-    "Webhook",
-    "Stability",
-    "Interaction",
-    "Movement",
-    "Plot",
-    "ESP",
-    "Farm",
-    "Rebirth",
-    "UI",
-    "Bootstrap",
-},
+        "LoadingScreen",
+        "Config",
+        "Services",
+        "State",
+        "Utils",
+        "Webhook",
+        "Stability",
+        "Interaction",
+        "Movement",
+        "Plot",
+        "ESP",
+        "Farm",
+        "Rebirth",
+        "UI",
+        "Bootstrap",
+    },
 
     -- ── Required for a healthy run ─────────────────────────────────
     REQUIRED = {
-        "Config", "Services", "StateStore", "Utils",
+        "Config", "Services", "StateStore", "Utils", "Webhook",
         "ESP", "Farm", "Rebirth", "Movement", "Plot", "UI",
     },
 
-    NAMESPACE = "LuxuryXHUB",
+    NAMESPACE = "EggsESP",
 }
 
 -- ┌─────────────────────────────────────────────────────────────────┐
@@ -335,6 +335,8 @@ local function main()
     -- ── Namespace ─────────────────────────────────────────────────
     getgenv()[CONFIG.NAMESPACE] = getgenv()[CONFIG.NAMESPACE] or {}
     local NS = getgenv()[CONFIG.NAMESPACE]
+    getgenv().EggsESP = NS
+    getgenv().LuxuryXHUB = NS
     NS.Modules = NS.Modules or {}
 
     -- ── Module loading ────────────────────────────────────────────

@@ -69,7 +69,9 @@ function StateStore.addHistoryRecord(eggName)
     -- ⭐ Webhook notification
     if NS.Webhook then
         task.spawn(function()
-            NS.Webhook.NotifyEggCollected(eggName, isRare)
+            pcall(function()
+                NS.Webhook.NotifyEggCollected(eggName, isRare)
+            end)
         end)
     end
 end

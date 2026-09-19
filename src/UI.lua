@@ -2123,8 +2123,9 @@ function UI.mount()
 
     local function saveWebhookUrl()
         if NS.Webhook then
-            NS.Webhook.Config.Url = WbUrlBox.Text
-            print("[Webhook] URL saved:", WbUrlBox.Text)
+            local text = (WbUrlBox.Text or ""):match("^%s*(.-)%s*$") or ""
+            NS.Webhook.Config.Url = text
+            print("[Webhook] URL saved:", text)
             updateStatus("Webhook URL saved", AppConfig.AccentBlue)
         end
     end
@@ -2157,6 +2158,10 @@ function UI.mount()
         if not NS.Webhook then 
             warn("[Webhook] NS.Webhook is nil!")
             return 
+        end
+        local currentText = (WbUrlBox.Text or ""):match("^%s*(.-)%s*$") or ""
+        if currentText ~= "" then
+            NS.Webhook.Config.Url = currentText
         end
         NS.Webhook.Config.Enabled = not NS.Webhook.Config.Enabled
         print("[Webhook] Enabled:", NS.Webhook.Config.Enabled)
@@ -2198,9 +2203,13 @@ function UI.mount()
             warn("[Webhook] NS.Webhook is nil!")
             return 
         end
+        local currentText = (WbUrlBox.Text or ""):match("^%s*(.-)%s*$") or ""
+        if currentText ~= "" then
+            NS.Webhook.Config.Url = currentText
+        end
         print("[Webhook] URL:", NS.Webhook.Config.Url)
         
-        if NS.Webhook.Config.Url == "" then
+        if not NS.Webhook.Config.Url or NS.Webhook.Config.Url == "" then
             updateStatus("Enter URL first", AppConfig.AccentRed)
             return
         end
@@ -2212,17 +2221,18 @@ function UI.mount()
         WbEnableBtn.TextColor3 = Color3.fromRGB(10, 20, 15)
         
         WbTestBtn.Text = "⏳ Sending..."
-        local ok, err = pcall(function()
+        local ok, res, detail = pcall(function()
             return NS.Webhook.Test()
         end)
         task.wait(0.5)
         WbTestBtn.Text = "🧪 Test"
-        print("[Webhook] Test result:", ok, err)
+        print("[Webhook] Test result:", ok, res, detail)
         
-        if ok then
+        if ok and res == true then
             updateStatus("Test sent! Check Discord", AppConfig.AccentGreen)
         else
-            updateStatus("Test failed", AppConfig.AccentRed)
+            local errStr = not ok and tostring(res) or tostring(detail or res or "Failed")
+            updateStatus("Failed: " .. errStr:sub(1, 24), AppConfig.AccentRed)
         end
     end
     WbTestBtn.MouseButton1Click:Connect(onTestClick)
