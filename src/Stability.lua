@@ -34,7 +34,7 @@ function Stability.setupAutoRejoin()
                 S.QueueOnTeleport([[
                     task.wait(3)
                     pcall(function()
-                        loadstring(game:HttpGet("https://raw.githubusercontent.com/LostInSynntaxx/RideAPet/main/loader.lua"))()
+                        loadstring(game:HttpGet("https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/main/loader.lua"))()
                     end)
                 ]])
             end)
