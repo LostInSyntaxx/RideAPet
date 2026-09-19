@@ -6,8 +6,8 @@
 ]]
 
 local CONFIG = {
-    BASE_URL    = "https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/v1.0.2/src/",
-    VERSION_URL = "https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/v1.0.2/version.txt",
+    BASE_URL    = "https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/v1.0.1/src/",
+    VERSION_URL = "https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/v1.0.1/version.txt",
     CACHE_DIR   = "RideAPet_cache",
     USE_DISK_CACHE = true,
     FORCE_REFRESH = false,
@@ -30,7 +30,7 @@ local CONFIG = {
         "Bootstrap",
     },
     REQUIRED = {
-        "Config", "Services", "State", "Utils",
+        "Config", "Services", "StateStore", "Utils",
         "ESP", "Farm", "Rebirth", "Movement", "Plot", "UI",
     },
     NAMESPACE = "EggsESP",

@@ -72,7 +72,7 @@ function StateStore.addHistoryRecord(eggName)
             NS.Webhook.NotifyEggCollected(eggName, isRare)
         end)
     end
-end 
+end
 
 function StateStore.shouldAlert(eggName)
     local now = os.clock()
@@ -104,3 +104,4 @@ function StateStore.reset()
 end
 
 NS.StateStore = StateStore
+NS.State = StateStore  -- ⭐ alias สำหรับ loader REQUIRED check
