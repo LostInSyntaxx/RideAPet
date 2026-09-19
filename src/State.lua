@@ -55,12 +55,14 @@ function StateStore.addHistoryRecord(eggName)
     for _, kw in ipairs(AppConfig.RareKeywords) do
         if string.find(lower, kw, 1, true) then isRare = true; break end
     end
+
     table.insert(StateStore.farmHistory, 1, {
         name = eggName, time = os.date("%H:%M:%S"), isRare = isRare
     })
     if #StateStore.farmHistory > AppConfig.MaxHistoryLogs then
         table.remove(StateStore.farmHistory)
     end
+
     StateStore.totalEggsCollected = StateStore.totalEggsCollected + 1
     if StateStore.onHistoryUpdated then StateStore.onHistoryUpdated() end
 
@@ -70,7 +72,7 @@ function StateStore.addHistoryRecord(eggName)
             NS.Webhook.NotifyEggCollected(eggName, isRare)
         end)
     end
-end
+end 
 
 function StateStore.shouldAlert(eggName)
     local now = os.clock()
