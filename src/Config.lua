@@ -73,3 +73,5 @@ NS.Config = {
     TextSecondary = Color3.fromRGB(163, 163, 163),
     TextMuted = Color3.fromRGB(110, 110, 110),
 }
+
+    
