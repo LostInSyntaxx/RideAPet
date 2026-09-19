@@ -83,6 +83,7 @@ function Webhook.Send(payload)
     end
 end
 
+-- ⭐ MAIN — แจ้งเตือนตอนเก็บไข่ได้ (Legacy Embed)
 function Webhook.NotifyEggCollected(eggName, isRare)
     if not Webhook.Config.Enabled then return false end
     if Webhook.Config.NotifyRareOnly and not isRare then
