@@ -28,8 +28,8 @@
 -- └─────────────────────────────────────────────────────────────────┘
 
 local CONFIG = {
-    BASE_URL    = "https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/v1.0.7/src/",
-    VERSION_URL = "https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/v1.0.7/version.txt",
+    BASE_URL    = "https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/v1.0.8/src/",
+    VERSION_URL = "https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/v1.0.8/version.txt",
     CACHE_DIR   = "LuxuryXHUB_cache",
 
     USE_DISK_CACHE = true,
