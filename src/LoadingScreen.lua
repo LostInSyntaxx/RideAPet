@@ -1,7 +1,9 @@
 -- src/LoadingScreen.lua
 -- Animated Loading Screen for RideAPet / LuxuryXHUB
 
-local NS = getgenv().EggsESP
+local NS = getgenv().EggsESP or getgenv().LuxuryXHUB or {}
+getgenv().EggsESP = NS
+getgenv().LuxuryXHUB = NS
 local S = NS and NS.Services
 
 local LoadingScreen = {}

@@ -356,6 +356,15 @@ local function main()
         if not src then
             Log.err(progress .. "  " .. name .. "  — FAILED")
             stats.failed = stats.failed + 1
+            if NS.LoadingScreen and NS.LoadingScreen.Update then
+                pcall(function()
+                    NS.LoadingScreen.Update(
+                        (i / total) * 100,
+                        "⚠️ Error loading " .. name,
+                        "(" .. name .. ")"
+                    )
+                end)
+            end
         else
             local ok = compileAndRun(name, src)
             if ok then
@@ -364,10 +373,31 @@ local function main()
                 Log.ok(("%s  %s  %s  (%s · %d B)"):format(
                     progress, icon, name, source, #src
                 ))
+
+                if name == "LoadingScreen" and NS.LoadingScreen and NS.LoadingScreen.Show then
+                    pcall(function() NS.LoadingScreen.Show() end)
+                end
+
+                if NS.LoadingScreen and NS.LoadingScreen.Update then
+                    pcall(function()
+                        NS.LoadingScreen.Update(
+                            (i / total) * 100,
+                            "📦 Loading modules...",
+                            "(" .. name .. ")"
+                        )
+                    end)
+                end
             else
                 stats.failed = stats.failed + 1
             end
         end
+    end
+
+    if NS.LoadingScreen and NS.LoadingScreen.Complete then
+        pcall(function()
+            task.wait(0.3)
+            NS.LoadingScreen.Complete()
+        end)
     end
 
     -- ── Persist version only if everything succeeded ───────────────
