@@ -377,19 +377,19 @@ function UI.mount()
 
     local TitleLabel = Instance.new("TextLabel")
     TitleLabel.Size = UDim2.new(0, 320, 0, 20)
-    TitleLabel.Position = UDim2.new(0, 16, 0, 8)
+    TitleLabel.Position = UDim2.new(0, 58, 0, 6)
     TitleLabel.BackgroundTransparency = 1
-    TitleLabel.Text = "RideAPet  <font color='#00e676'>HUB</font>"
+    TitleLabel.Text = "Luxury<font color='#00e676'>X</font>HUB"
+    LogoImage.Image = "https://yourimageshare.com/ib/K3HDoXCNox.png"        
     TitleLabel.RichText = true
     TitleLabel.TextColor3 = AppConfig.TextPrimary
     TitleLabel.TextSize = AppConfig.TextTitle
     TitleLabel.Font = Enum.Font.GothamBold
     TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
     TitleLabel.Parent = TopBar
-
     local SubLabel = Instance.new("TextLabel")
     SubLabel.Size = UDim2.new(0, 320, 0, 14)
-    SubLabel.Position = UDim2.new(0, 16, 0, 27)
+    SubLabel.Position = UDim2.new(0, 58, 0, 27)
     SubLabel.BackgroundTransparency = 1
     SubLabel.Text = "v" .. AppConfig.Version
     SubLabel.TextColor3 = AppConfig.TextMuted
@@ -397,7 +397,6 @@ function UI.mount()
     SubLabel.Font = Enum.Font.GothamMedium
     SubLabel.TextXAlignment = Enum.TextXAlignment.Left
     SubLabel.Parent = TopBar
-
     local QuickStatusPill = Instance.new("Frame")
     QuickStatusPill.Size = UDim2.new(0, 160, 0, 26)
     QuickStatusPill.Position = UDim2.new(1, -300, 0.5, -13)
