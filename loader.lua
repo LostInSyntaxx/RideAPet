@@ -17,6 +17,7 @@ local CONFIG = {
         "Stability", "Interaction", "Movement",
         "Plot", "ESP", "Farm", "Rebirth",
         "UI", "Bootstrap",
+        "Webhook", 
     },
     REQUIRED = {
         "Config", "Services", "State", "Utils",

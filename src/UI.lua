@@ -1504,6 +1504,8 @@ function UI.mount()
         end
     end)
 
+
+    
     -- ══════════════════════════════════════════════════════════════
     -- [TAB 3] TIME
     -- ══════════════════════════════════════════════════════════════
@@ -1967,6 +1969,198 @@ function UI.mount()
         else
             updateStatus("No Plot Detected", AppConfig.AccentRed)
             CheckPlotBtn.Text = "❌ No Home Plot"
+        end
+    end)
+
+
+
+    -- ══════════════════════════════════════════════════════════════
+    -- WEBHOOK SETTINGS
+    -- ══════════════════════════════════════════════════════════════
+    local WebhookCard = Instance.new("Frame")
+    WebhookCard.Size = UDim2.new(1, -4, 0, 220)
+    WebhookCard.LayoutOrder = 4
+    WebhookCard.BackgroundColor3 = AppConfig.NestedCardBg
+    WebhookCard.Parent = SettingsScroll
+    UI.applyCard(WebhookCard, AppConfig.RadiusXL, AppConfig.NestedCardBg, AppConfig.BorderInner)
+
+    local WbTitle = Instance.new("TextLabel")
+    WbTitle.Size = UDim2.new(1, -20, 0, 20)
+    WbTitle.Position = UDim2.new(0, 14, 0, 8)
+    WbTitle.BackgroundTransparency = 1
+    WbTitle.Text = "📨  Discord Webhook"
+    WbTitle.TextColor3 = AppConfig.AccentBlue
+    WbTitle.TextSize = AppConfig.TextHeader
+    WbTitle.Font = Enum.Font.GothamBold
+    WbTitle.TextXAlignment = Enum.TextXAlignment.Left
+    WbTitle.Parent = WebhookCard
+
+    -- URL Input
+    local WbUrlBox = Instance.new("TextBox")
+    WbUrlBox.Size = UDim2.new(1, -20, 0, 32)
+    WbUrlBox.Position = UDim2.new(0, 10, 0, 36)
+    WbUrlBox.BackgroundColor3 = AppConfig.RecessedBg
+    WbUrlBox.PlaceholderText = "https://discord.com/api/webhooks/..."
+    WbUrlBox.PlaceholderColor3 = AppConfig.TextMuted
+    WbUrlBox.Text = (NS.Webhook and NS.Webhook.Config.Url) or ""
+    WbUrlBox.TextColor3 = AppConfig.TextPrimary
+    WbUrlBox.TextSize = AppConfig.TextCaption
+    WbUrlBox.Font = Enum.Font.GothamMedium
+    WbUrlBox.TextXAlignment = Enum.TextXAlignment.Left
+    WbUrlBox.ClearTextOnFocus = false
+    WbUrlBox.Parent = WebhookCard
+    UI.styleInput(WbUrlBox, AppConfig.RadiusMD)
+
+    WbUrlBox.FocusLost:Connect(function()
+        if NS.Webhook then
+            NS.Webhook.Config.Url = WbUrlBox.Text
+            updateStatus("Webhook URL saved", AppConfig.AccentBlue)
+        end
+    end)
+
+    -- Enable Toggle
+    local WbEnableBtn = Instance.new("TextButton")
+    WbEnableBtn.Size = UDim2.new(0.33, -14, 0, 30)
+    WbEnableBtn.Position = UDim2.new(0, 10, 0, 76)
+    WbEnableBtn.BackgroundColor3 = AppConfig.RecessedBg
+    WbEnableBtn.Text = "🔕 Disabled"
+    WbEnableBtn.TextColor3 = AppConfig.TextMuted
+    WbEnableBtn.TextSize = AppConfig.TextCaption
+    WbEnableBtn.Font = Enum.Font.GothamBold
+    WbEnableBtn.Parent = WebhookCard
+    UI.styleButton(WbEnableBtn, AppConfig.RadiusMD, AppConfig.RecessedBg)
+
+    WbEnableBtn.MouseButton1Click:Connect(function()
+        if not NS.Webhook then return end
+        NS.Webhook.Config.Enabled = not NS.Webhook.Config.Enabled
+        if NS.Webhook.Config.Enabled then
+            WbEnableBtn.Text = "🔔 Enabled"
+            UI.setButtonDefault(WbEnableBtn, AppConfig.AccentGreen)
+            WbEnableBtn.TextColor3 = Color3.fromRGB(10, 20, 15)
+            updateStatus("Webhook: ON", AppConfig.AccentGreen)
+        else
+            WbEnableBtn.Text = "🔕 Disabled"
+            UI.setButtonDefault(WbEnableBtn, AppConfig.RecessedBg)
+            WbEnableBtn.TextColor3 = AppConfig.TextMuted
+            updateStatus("Webhook: OFF", AppConfig.TextSecondary)
+        end
+    end)
+
+    -- Test Button
+    local WbTestBtn = Instance.new("TextButton")
+    WbTestBtn.Size = UDim2.new(0.33, -14, 0, 30)
+    WbTestBtn.Position = UDim2.new(0.33, 0, 0, 76)
+    WbTestBtn.BackgroundColor3 = AppConfig.RecessedBg
+    WbTestBtn.Text = "🧪 Test"
+    WbTestBtn.TextColor3 = AppConfig.AccentBlue
+    WbTestBtn.TextSize = AppConfig.TextCaption
+    WbTestBtn.Font = Enum.Font.GothamBold
+    WbTestBtn.Parent = WebhookCard
+    UI.styleButton(WbTestBtn, AppConfig.RadiusMD, AppConfig.RecessedBg)
+
+    WbTestBtn.MouseButton1Click:Connect(function()
+        if not NS.Webhook then return end
+        if NS.Webhook.Config.Url == "" then
+            updateStatus("Please enter webhook URL", AppConfig.AccentRed)
+            return
+        end
+        NS.Webhook.Config.Enabled = true
+        local ok = NS.Webhook.Test()
+        if ok then
+            updateStatus("Test sent!", AppConfig.AccentGreen)
+        else
+            updateStatus("Test failed — check URL", AppConfig.AccentRed)
+        end
+    end)
+
+    -- Summary Button
+    local WbSummaryBtn = Instance.new("TextButton")
+    WbSummaryBtn.Size = UDim2.new(0.33, -14, 0, 30)
+    WbSummaryBtn.Position = UDim2.new(0.66, 0, 0, 76)
+    WbSummaryBtn.BackgroundColor3 = AppConfig.RecessedBg
+    WbSummaryBtn.Text = "📊 Summary"
+    WbSummaryBtn.TextColor3 = AppConfig.AccentGold
+    WbSummaryBtn.TextSize = AppConfig.TextCaption
+    WbSummaryBtn.Font = Enum.Font.GothamBold
+    WbSummaryBtn.Parent = WebhookCard
+    UI.styleButton(WbSummaryBtn, AppConfig.RadiusMD, AppConfig.RecessedBg)
+
+    WbSummaryBtn.MouseButton1Click:Connect(function()
+        if not NS.Webhook then return end
+        if NS.Webhook.NotifySessionSummary() then
+            updateStatus("Session summary sent", AppConfig.AccentGreen)
+        else
+            updateStatus("Failed to send summary", AppConfig.AccentRed)
+        end
+    end)
+
+    -- Event Toggles (row of 4 small buttons)
+    local WbEventsTitle = Instance.new("TextLabel")
+    WbEventsTitle.Size = UDim2.new(1, -20, 0, 16)
+    WbEventsTitle.Position = UDim2.new(0, 14, 0, 112)
+    WbEventsTitle.BackgroundTransparency = 1
+    WbEventsTitle.Text = "Events:"
+    WbEventsTitle.TextColor3 = AppConfig.TextSecondary
+    WbEventsTitle.TextSize = AppConfig.TextMicro
+    WbEventsTitle.Font = Enum.Font.GothamMedium
+    WbEventsTitle.TextXAlignment = Enum.TextXAlignment.Left
+    WbEventsTitle.Parent = WebhookCard
+
+    local eventBtns = {}
+    local eventsConfig = {
+        { key = "NotifyRareEggs", label = "🌟 Rare" },
+        { key = "NotifyFarmLog",  label = "🥚 Farm" },
+        { key = "NotifySession",  label = "📊 Session" },
+        { key = "NotifyRebirth",  label = "🔄 Rebirth" },
+    }
+
+    for i, ev in ipairs(eventsConfig) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0.25, -6, 0, 26)
+        btn.Position = UDim2.new((i-1) * 0.25, 2, 0, 132)
+        btn.BackgroundColor3 = (NS.Webhook and NS.Webhook.Config[ev.key]) and AppConfig.AccentGreen or AppConfig.RecessedBg
+        btn.Text = ev.label
+        btn.TextColor3 = (NS.Webhook and NS.Webhook.Config[ev.key]) and Color3.fromRGB(10, 20, 15) or AppConfig.TextMuted
+        btn.TextSize = AppConfig.TextMicro
+        btn.Font = Enum.Font.GothamBold
+        btn.Parent = WebhookCard
+        UI.styleButton(btn, AppConfig.RadiusSM, btn.BackgroundColor3)
+        
+        eventBtns[ev.key] = btn
+        
+        btn.MouseButton1Click:Connect(function()
+            if not NS.Webhook then return end
+            NS.Webhook.Config[ev.key] = not NS.Webhook.Config[ev.key]
+            if NS.Webhook.Config[ev.key] then
+                UI.setButtonDefault(btn, AppConfig.AccentGreen)
+                btn.TextColor3 = Color3.fromRGB(10, 20, 15)
+            else
+                UI.setButtonDefault(btn, AppConfig.RecessedBg)
+                btn.TextColor3 = AppConfig.TextMuted
+            end
+        end)
+    end
+
+    -- Stats display
+    local WbStatsLabel = Instance.new("TextLabel")
+    WbStatsLabel.Name = "WbStatsLabel"
+    WbStatsLabel.Size = UDim2.new(1, -20, 0, 20)
+    WbStatsLabel.Position = UDim2.new(0, 14, 0, 168)
+    WbStatsLabel.BackgroundTransparency = 1
+    WbStatsLabel.Text = "Sent: 0 | Errors: 0"
+    WbStatsLabel.TextColor3 = AppConfig.TextMuted
+    WbStatsLabel.TextSize = AppConfig.TextMicro
+    WbStatsLabel.Font = Enum.Font.Gotham
+    WbStatsLabel.TextXAlignment = Enum.TextXAlignment.Left
+    WbStatsLabel.Parent = WebhookCard
+
+    task.spawn(function()
+        while WebhookCard.Parent do
+            if NS.Webhook then
+                local stats = NS.Webhook.GetStats()
+                WbStatsLabel.Text = string.format("Sent: %d | Errors: %d", stats.sent, stats.errors)
+            end
+            task.wait(2)
         end
     end)
 
