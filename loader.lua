@@ -1,18 +1,42 @@
 --[[
-    ╔══════════════════════════════════════════════════════════════╗
-    ║  RideAPet — Modular Loader                                   ║
-    ║  Auto-cache + Auto-refresh + Retry + Health check            ║
-    ╚══════════════════════════════════════════════════════════════╝
+╭────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                    │
+│  ##       ##     ## ##     ## ##     ## ########  ##    ##                         │
+│  ##       ##     ##  ##   ##  ##     ## ##     ##  ##  ##                          │
+│  ##       ##     ##   ## ##   ##     ## ##     ##   ####                           │
+│  ##       ##     ##    ###    ##     ## ########     ##                            │
+│  ##       ##     ##   ## ##   ##     ## ##   ##      ##                            │
+│  ##       ##     ##  ##   ##  ##     ## ##    ##     ##                            │
+│  ########  #######  ##     ##  #######  ##     ##    ##                            │
+│                                                                                    │
+│  ##     ## ##     ## ##     ## ########                                            │
+│   ##   ##  ##     ## ##     ## ##     ##                                           │
+│    ## ##   ##     ## ##     ## ##     ##                                           │
+│     ###    ######### ##     ## ########                                            │
+│    ## ##   ##     ## ##     ## ##     ##                                           │
+│   ##   ##  ##     ## ##     ## ##     ##                                           │
+│  ##     ## ##     ##  #######  ########                                            │
+│                                                                                    │
+│                        Modular Script Loader                                       │
+│              Auto-cache  ·  Auto-refresh  ·  Health check                         │
+│                                                                                    │
+╰────────────────────────────────────────────────────────────────────────────────────╯
 ]]
+
+-- ┌─────────────────────────────────────────────────────────────────┐
+-- │  CONFIGURATION                                                  │
+-- └─────────────────────────────────────────────────────────────────┘
 
 local CONFIG = {
     BASE_URL    = "https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/v1.0.5/src/",
     VERSION_URL = "https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/v1.0.5/version.txt",
-    CACHE_DIR   = "RideAPet_cache",
-    USE_DISK_CACHE = true,
-    FORCE_REFRESH = false,
-    MAX_RETRIES = 3,
+    CACHE_DIR   = "LuxuryXHUB_cache",
 
+    USE_DISK_CACHE = true,
+    FORCE_REFRESH  = false,
+    MAX_RETRIES    = 3,
+
+    -- ── Modules (load order matters) ──────────────────────────────
     MODULES = {
         "Config",
         "Services",
@@ -29,34 +53,57 @@ local CONFIG = {
         "UI",
         "Bootstrap",
     },
+
+    -- ── Required for a healthy run ─────────────────────────────────
     REQUIRED = {
         "Config", "Services", "StateStore", "Utils",
         "ESP", "Farm", "Rebirth", "Movement", "Plot", "UI",
     },
-    NAMESPACE = "EggsESP",
+
+    NAMESPACE = "LuxuryXHUB",
 }
 
+-- ┌─────────────────────────────────────────────────────────────────┐
+-- │  CAPABILITY DETECTION                                           │
+-- └─────────────────────────────────────────────────────────────────┘
+
 local CAP = {
-    readfile  = (typeof(readfile)  == "function"),
-    writefile = (typeof(writefile) == "function"),
-    isfile    = (typeof(isfile)    == "function"),
-    isfolder  = (typeof(isfolder)  == "function"),
-    makefolder= (typeof(makefolder)== "function"),
-    delfile   = (typeof(delfile)   == "function"),
-    httpget   = (typeof(game.HttpGet) == "function"),
-    loadstring= (typeof(loadstring) == "function"),
+    readfile   = (typeof(readfile)    == "function"),
+    writefile  = (typeof(writefile)   == "function"),
+    isfile     = (typeof(isfile)      == "function"),
+    isfolder   = (typeof(isfolder)    == "function"),
+    makefolder = (typeof(makefolder)  == "function"),
+    delfile    = (typeof(delfile)     == "function"),
+    httpget    = (typeof(game.HttpGet)== "function"),
+    loadstring = (typeof(loadstring)  == "function"),
 }
 
 local DISK_CACHE_OK = CONFIG.USE_DISK_CACHE
-    and CAP.readfile and CAP.writefile and CAP.isfile and CAP.isfolder and CAP.makefolder
+    and CAP.readfile and CAP.writefile
+    and CAP.isfile   and CAP.isfolder
+    and CAP.makefolder
+
+-- ┌─────────────────────────────────────────────────────────────────┐
+-- │  LOGGER                                                         │
+-- └─────────────────────────────────────────────────────────────────┘
+
+local LOG_PREFIX = "[LuxuryXHUB]"
 
 local Log = {}
-local PREFIX = "[RideAPet]"
-function Log.info(m) print(PREFIX .. " " .. tostring(m)) end
-function Log.ok(m)   print(PREFIX .. " ✓ " .. tostring(m)) end
-function Log.warn(m) warn(PREFIX .. " ⚠ " .. tostring(m)) end
-function Log.err(m)  warn(PREFIX .. " ✗ " .. tostring(m)) end
-function Log.debug(m) if CONFIG.FORCE_REFRESH then print(PREFIX .. " [dbg] " .. tostring(m)) end end
+
+function Log.info (msg) print(LOG_PREFIX .. "  " .. tostring(msg)) end
+function Log.ok   (msg) print(LOG_PREFIX .. " ✓  " .. tostring(msg)) end
+function Log.warn (msg) warn (LOG_PREFIX .. " ⚠  " .. tostring(msg)) end
+function Log.err  (msg) warn (LOG_PREFIX .. " ✗  " .. tostring(msg)) end
+function Log.debug(msg)
+    if CONFIG.FORCE_REFRESH then
+        print(LOG_PREFIX .. " [dbg]  " .. tostring(msg))
+    end
+end
+
+-- ┌─────────────────────────────────────────────────────────────────┐
+-- │  HTTP HELPER  (retry + back-off)                                │
+-- └─────────────────────────────────────────────────────────────────┘
 
 local function httpGet(url)
     local lastErr
@@ -66,15 +113,19 @@ local function httpGet(url)
         lastErr = result
         if attempt < CONFIG.MAX_RETRIES then task.wait(0.4 * attempt) end
     end
-    Log.err("HTTP failed: " .. url)
+    Log.err("HTTP failed after " .. CONFIG.MAX_RETRIES .. " attempts → " .. url)
     return nil
 end
+
+-- ┌─────────────────────────────────────────────────────────────────┐
+-- │  CACHE  (memory + optional disk)                                │
+-- └─────────────────────────────────────────────────────────────────┘
 
 local Cache = { memory = {} }
 
 function Cache.init()
     if not DISK_CACHE_OK then
-        Log.warn("Disk cache unavailable — in-memory only")
+        Log.warn("Disk cache unavailable — running in-memory only")
         return
     end
     if not isfolder(CONFIG.CACHE_DIR) then
@@ -118,8 +169,13 @@ function Cache.clear()
     end
 end
 
+-- ┌─────────────────────────────────────────────────────────────────┐
+-- │  VERSION CHECK                                                  │
+-- └─────────────────────────────────────────────────────────────────┘
+
 local function checkVersion()
     if not CONFIG.VERSION_URL then return nil, false end
+
     local remoteVer = httpGet(CONFIG.VERSION_URL)
     if not remoteVer then return nil, false end
     remoteVer = remoteVer:match("^%s*(.-)%s*$")
@@ -136,126 +192,205 @@ local function checkVersion()
     end
 
     if localVer ~= remoteVer then
-        Log.info("Version: local=" .. tostring(localVer) .. " remote=" .. remoteVer)
+        Log.info(("Version changed  %s  →  %s"):format(
+            tostring(localVer) == "nil" and "none" or tostring(localVer),
+            remoteVer
+        ))
         return remoteVer, true
     end
+
     return remoteVer, false
 end
 
 local function saveVersion(ver)
     if not ver then return end
     if DISK_CACHE_OK then
-        local path = CONFIG.CACHE_DIR .. "/_version.txt"
-        pcall(function() writefile(path, ver) end)
+        pcall(function()
+            writefile(CONFIG.CACHE_DIR .. "/_version.txt", ver)
+        end)
     end
     Cache.memory._version = ver
 end
+
+-- ┌─────────────────────────────────────────────────────────────────┐
+-- │  MODULE FETCH                                                   │
+-- └─────────────────────────────────────────────────────────────────┘
 
 local function fetchModule(name, forceRefresh)
     if not forceRefresh and not CONFIG.FORCE_REFRESH then
         local cached = Cache.read(name)
         if cached then return cached, "cache" end
     end
+
     local url = CONFIG.BASE_URL .. name .. ".lua"
     local src = httpGet(url)
+
     if not src then
         local cached = Cache.read(name)
-        if cached then return cached, "stale-cache" end
+        if cached then return cached, "stale" end
         return nil, "failed"
     end
+
     Cache.write(name, src)
     return src, "http"
 end
 
+-- ┌─────────────────────────────────────────────────────────────────┐
+-- │  COMPILE & EXECUTE                                              │
+-- └─────────────────────────────────────────────────────────────────┘
+
 local function compileAndRun(name, src)
     if not src or #src < 20 then
-        Log.err("Source too small: " .. name)
+        Log.err("Source too small to be valid: " .. name)
         return false
     end
-    local chunk, err = loadstring(src, "@RideAPet/" .. name)
+
+    local chunk, compileErr = loadstring(src, "@LuxuryXHUB/" .. name)
     if not chunk then
-        Log.err("Compile error in " .. name .. ": " .. tostring(err))
+        Log.err("Compile error in " .. name .. ": " .. tostring(compileErr))
         return false
     end
+
     local ok, runtimeErr = pcall(chunk)
     if not ok then
         Log.err("Runtime error in " .. name .. ": " .. tostring(runtimeErr))
         return false
     end
+
     return true
 end
+
+-- ┌─────────────────────────────────────────────────────────────────┐
+-- │  HEALTH CHECK                                                   │
+-- └─────────────────────────────────────────────────────────────────┘
 
 local function healthCheck(NS)
     local missing = {}
     for _, key in ipairs(CONFIG.REQUIRED) do
-        if not NS[key] then table.insert(missing, key) end
+        if not NS[key] then
+            table.insert(missing, key)
+        end
     end
+
     if #missing > 0 then
-        Log.err("Missing modules: " .. table.concat(missing, ", "))
+        Log.err("Health check FAILED — missing: " .. table.concat(missing, ", "))
         return false
     end
-    Log.ok("Health check passed — all modules loaded")
+
+    Log.ok("Health check passed — all required modules present")
     return true
 end
+
+-- ┌─────────────────────────────────────────────────────────────────┐
+-- │  MAIN                                                           │
+-- └─────────────────────────────────────────────────────────────────┘
 
 local function main()
     local t0 = os.clock()
 
     print("")
-    print("╔══════════════════════════════════════════════════════╗")
-    print("║           RideAPet — Modular Loader                  ║")
-    print("╚══════════════════════════════════════════════════════╝")
+    print("╭────────────────────────────────────────────────────────────────────────────────────╮")
+    print("│                                                                                    │")
+    print("│  ##       ##     ## ##     ## ##     ## ########  ##    ##                         │")
+    print("│  ##       ##     ##  ##   ##  ##     ## ##     ##  ##  ##                          │")
+    print("│  ##       ##     ##   ## ##   ##     ## ##     ##   ####                           │")
+    print("│  ##       ##     ##    ###    ##     ## ########     ##                            │")
+    print("│  ##       ##     ##   ## ##   ##     ## ##   ##      ##                            │")
+    print("│  ##       ##     ##  ##   ##  ##     ## ##    ##     ##                            │")
+    print("│  ########  #######  ##     ##  #######  ##     ##    ##                            │")
+    print("│                                                                                    │")
+    print("│  ##     ## ##     ## ##     ## ########                                            │")
+    print("│   ##   ##  ##     ## ##     ## ##     ##                                           │")
+    print("│    ## ##   ##     ## ##     ## ##     ##                                           │")
+    print("│     ###    ######### ##     ## ########                                            │")
+    print("│    ## ##   ##     ## ##     ## ##     ##                                           │")
+    print("│   ##   ##  ##     ## ##     ## ##     ##                                           │")
+    print("│  ##     ## ##     ##  #######  ########                                            │")
+    print("│                                                                                    │")
+    print("│                        Modular Script Loader                                       │")
+    print("│              Auto-cache  ·  Auto-refresh  ·  Health check                         │")
+    print("│                                                                                    │")
+    print("╰────────────────────────────────────────────────────────────────────────────────────╯")
     print("")
 
+    -- ── Pre-flight ────────────────────────────────────────────────
     if not CAP.loadstring then
-        Log.err("Executor doesn't support loadstring")
+        Log.err("Executor does not support loadstring — aborting")
         return
     end
 
+    -- ── Cache init ────────────────────────────────────────────────
     Cache.init()
 
+    -- ── Version check ─────────────────────────────────────────────
     local newVer, needsRefresh = checkVersion()
     if needsRefresh then
-        Log.info("Pulling fresh modules...")
+        Log.info("New version detected — clearing cache and pulling fresh modules")
         Cache.clear()
+    else
+        Log.info("Version up-to-date — using cache where available")
     end
 
+    -- ── Namespace ─────────────────────────────────────────────────
     getgenv()[CONFIG.NAMESPACE] = getgenv()[CONFIG.NAMESPACE] or {}
     local NS = getgenv()[CONFIG.NAMESPACE]
     NS.Modules = NS.Modules or {}
 
-    local stats = { cache = 0, http = 0, stale = 0, failed = 0 }
+    -- ── Module loading ────────────────────────────────────────────
+    local total  = #CONFIG.MODULES
+    local stats  = { cache = 0, http = 0, stale = 0, failed = 0 }
+    local SOURCE_ICON = { cache = "💾", http = "🌐", stale = "♻️", failed = "✗" }
+
+    print("")
+    Log.info(("Loading %d modules…"):format(total))
+    print("")
 
     for i, name in ipairs(CONFIG.MODULES) do
         local src, source = fetchModule(name, needsRefresh)
+        local progress    = ("[%02d/%02d]"):format(i, total)
+        local icon        = SOURCE_ICON[source] or "?"
+
         if not src then
-            Log.err(string.format("[%d/%d] %s — FAILED", i, #CONFIG.MODULES, name))
+            Log.err(progress .. "  " .. name .. "  — FAILED")
             stats.failed = stats.failed + 1
         else
             local ok = compileAndRun(name, src)
             if ok then
-                local icon = (source == "cache") and "💾" or (source == "http") and "🌐" or "♻️"
-                Log.ok(string.format("[%d/%d] %s %s (%s, %d bytes)", i, #CONFIG.MODULES, icon, name, source, #src))
-                stats[source == "stale-cache" and "stale" or source] = (stats[source == "stale-cache" and "stale" or source] or 0) + 1
+                local key = (source == "stale") and "stale" or source
+                stats[key] = (stats[key] or 0) + 1
+                Log.ok(("%s  %s  %s  (%s · %d B)"):format(
+                    progress, icon, name, source, #src
+                ))
             else
                 stats.failed = stats.failed + 1
             end
         end
     end
 
-    if newVer and stats.failed == 0 then saveVersion(newVer) end
+    -- ── Persist version only if everything succeeded ───────────────
+    if newVer and stats.failed == 0 then
+        saveVersion(newVer)
+    end
 
+    -- ── Health check ──────────────────────────────────────────────
     print("")
     healthCheck(NS)
 
+    -- ── Summary ───────────────────────────────────────────────────
     local dt = os.clock() - t0
     print("")
-    Log.info(string.format("Done in %.2fs | cache:%d http:%d stale:%d failed:%d",
-        dt, stats.cache, stats.http, stats.stale, stats.failed))
+    print("╭────────────────────────────────────────────────────────────────────────────────────╮")
+    print(("│  Done in %.2fs   💾 cache %-3d  🌐 http %-3d  ♻️  stale %-3d  ✗ failed %-3d │")
+        :format(dt, stats.cache, stats.http, stats.stale, stats.failed))
+    print("╰────────────────────────────────────────────────────────────────────────────────────╯")
     print("")
 end
 
+-- ┌─────────────────────────────────────────────────────────────────┐
+-- │  ENTRY POINT  (guarded)                                         │
+-- └─────────────────────────────────────────────────────────────────┘
+
 local ok, err = pcall(main)
 if not ok then
-    Log.err("Fatal: " .. tostring(err))
-end
+    warn("[LuxuryXHUB] ✗  Fatal error: " .. tostring(err))
+end 
