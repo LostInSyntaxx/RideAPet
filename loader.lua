@@ -28,8 +28,8 @@
 -- └─────────────────────────────────────────────────────────────────┘
 
 local CONFIG = {
-    BASE_URL    = "https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/v1.0.8/src/",
-    VERSION_URL = "https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/v1.0.8/version.txt",
+    BASE_URL    = "https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/v1.0.5/src/",
+    VERSION_URL = "https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/v1.0.5/version.txt",
     CACHE_DIR   = "LuxuryXHUB_cache",
 
     USE_DISK_CACHE = true,
@@ -38,22 +38,22 @@ local CONFIG = {
 
     -- ── Modules (load order matters) ──────────────────────────────
     MODULES = {
-        "LoadingScreen",
-        "Config",
-        "Services",
-        "State",
-        "Utils",
-        "Webhook",
-        "Stability",
-        "Interaction",
-        "Movement",
-        "Plot",
-        "ESP",
-        "Farm",
-        "Rebirth",
-        "UI",
-        "Bootstrap",
-    },
+    "LoadingScreen",
+    "Config",
+    "Services",
+    "State",
+    "Utils",
+    "Webhook",
+    "Stability",
+    "Interaction",
+    "Movement",
+    "Plot",
+    "ESP",
+    "Farm",
+    "Rebirth",
+    "UI",
+    "Bootstrap",
+},
 
     -- ── Required for a healthy run ─────────────────────────────────
     REQUIRED = {
@@ -61,8 +61,7 @@ local CONFIG = {
         "ESP", "Farm", "Rebirth", "Movement", "Plot", "UI",
     },
 
-    -- ⭐ สำคัญ! ต้องเป็น "EggsESP" (ไม่ใช่ "LuxuryXHUB")
-    NAMESPACE = "EggsESP",
+    NAMESPACE = "LuxuryXHUB",
 }
 
 -- ┌─────────────────────────────────────────────────────────────────┐
@@ -338,26 +337,6 @@ local function main()
     local NS = getgenv()[CONFIG.NAMESPACE]
     NS.Modules = NS.Modules or {}
 
-    -- ⭐ โหลด LoadingScreen.lua ก่อน (เป็น module แรก)
-    local firstSrc = httpGet(CONFIG.BASE_URL .. "LoadingScreen.lua")
-    if firstSrc and #firstSrc > 20 then
-        local chunk = loadstring(firstSrc, "@LuxuryXHUB/LoadingScreen")
-        if chunk then
-            local ok, err = pcall(chunk)
-            if ok then
-                Cache.write("LoadingScreen", firstSrc)
-            else
-                Log.warn("LoadingScreen error: " .. tostring(err))
-            end
-        end
-    end
-
-    -- ⭐ แสดง Loading Screen
-    local loadingScreen = NS.LoadingScreen
-    if loadingScreen and loadingScreen.Show then
-        loadingScreen.Show()
-    end
-
     -- ── Module loading ────────────────────────────────────────────
     local total  = #CONFIG.MODULES
     local stats  = { cache = 0, http = 0, stale = 0, failed = 0 }
@@ -368,63 +347,25 @@ local function main()
     print("")
 
     for i, name in ipairs(CONFIG.MODULES) do
-        local progress = ("[%02d/%02d]"):format(i, total)
+        local src, source = fetchModule(name, needsRefresh)
+        local progress    = ("[%02d/%02d]"):format(i, total)
+        local icon        = SOURCE_ICON[source] or "?"
 
-        -- ⭐ ข้าม LoadingScreen เพราะโหลดไปแล้ว
-        if name == "LoadingScreen" then
-            stats.cache = stats.cache + 1
-            Log.ok(progress .. "  💾  LoadingScreen  (pre-loaded)")
-
-            if loadingScreen and loadingScreen.Update then
-                loadingScreen.Update(
-                    (i / total) * 100,
-                    "📦 Loading modules...",
-                    "(" .. name .. ")"
-                )
-            end
+        if not src then
+            Log.err(progress .. "  " .. name .. "  — FAILED")
+            stats.failed = stats.failed + 1
         else
-            local src, source = fetchModule(name, needsRefresh)
-            local icon = SOURCE_ICON[source] or "?"
-
-            if not src then
-                Log.err(progress .. "  " .. name .. "  — FAILED")
-                stats.failed = stats.failed + 1
-
-                if loadingScreen and loadingScreen.Update then
-                    loadingScreen.Update(
-                        (i / total) * 100,
-                        "⚠️ Error loading " .. name,
-                        "(" .. name .. ")"
-                    )
-                end
+            local ok = compileAndRun(name, src)
+            if ok then
+                local key = (source == "stale") and "stale" or source
+                stats[key] = (stats[key] or 0) + 1
+                Log.ok(("%s  %s  %s  (%s · %d B)"):format(
+                    progress, icon, name, source, #src
+                ))
             else
-                local ok = compileAndRun(name, src)
-                if ok then
-                    local key = (source == "stale") and "stale" or source
-                    stats[key] = (stats[key] or 0) + 1
-                    Log.ok(("%s  %s  %s  (%s · %d B)"):format(
-                        progress, icon, name, source, #src
-                    ))
-
-                    -- ⭐ อัปเดต Loading Screen
-                    if loadingScreen and loadingScreen.Update then
-                        loadingScreen.Update(
-                            (i / total) * 100,
-                            "📦 Loading modules...",
-                            "(" .. name .. ")"
-                        )
-                    end
-                else
-                    stats.failed = stats.failed + 1
-                end
+                stats.failed = stats.failed + 1
             end
         end
-    end
-
-    -- ⭐ ปิด Loading Screen (Complete)
-    if loadingScreen and loadingScreen.Complete then
-        task.wait(0.3)
-        loadingScreen.Complete()
     end
 
     -- ── Persist version only if everything succeeded ───────────────
@@ -453,4 +394,4 @@ end
 local ok, err = pcall(main)
 if not ok then
     warn("[LuxuryXHUB] ✗  Fatal error: " .. tostring(err))
-end
+end 
