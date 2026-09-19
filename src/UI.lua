@@ -248,9 +248,11 @@ function UI.createSlider(parent, titleText, minVal, maxVal, defaultVal, unitStr,
 end
 
 -- ═══════════════════════════════════════════════════════════════════
--- UI.mount() — Full window
+-- UI.mount() — Full window with LuxuryXHUB logo
 -- ═══════════════════════════════════════════════════════════════════
 function UI.mount()
+    local LOGO_URL = "https://yourimageshare.com/ib/K3HDoXCNox.png"
+
     local old = S.TargetParent:FindFirstChild("RenderedEggsESP_Menu")
     if old then pcall(function() old:Destroy() end) end
 
@@ -285,8 +287,8 @@ function UI.mount()
     -- ══════════════════════════════════════════════════════════════
     local DeviceFrame = Instance.new("Frame")
     DeviceFrame.Name = "DeviceSelectionFrame"
-    DeviceFrame.Size = UDim2.new(0, 340, 0, 170)
-    DeviceFrame.Position = UDim2.new(0.5, -170, 0.5, -85)
+    DeviceFrame.Size = UDim2.new(0, 340, 0, 220)
+    DeviceFrame.Position = UDim2.new(0.5, -170, 0.5, -110)
     DeviceFrame.BackgroundColor3 = AppConfig.BgColor
     DeviceFrame.BackgroundTransparency = AppConfig.BgTransparency
     DeviceFrame.BorderSizePixel = 0
@@ -300,11 +302,20 @@ function UI.mount()
     DeviceInner.Parent = DeviceFrame
     UI.applyCard(DeviceInner, AppConfig.RadiusXL, AppConfig.OuterCardBg, AppConfig.BorderInner)
 
+    -- Logo in device selection
+    local DeviceLogo = Instance.new("ImageLabel")
+    DeviceLogo.Size = UDim2.new(0, 64, 0, 64)
+    DeviceLogo.Position = UDim2.new(0.5, -32, 0, 14)
+    DeviceLogo.BackgroundTransparency = 1
+    DeviceLogo.Image = LOGO_URL
+    DeviceLogo.ScaleType = Enum.ScaleType.Fit
+    DeviceLogo.Parent = DeviceInner
+
     local DeviceTitle = Instance.new("TextLabel")
-    DeviceTitle.Size = UDim2.new(1, 0, 0, 30)
-    DeviceTitle.Position = UDim2.new(0, 0, 0, 14)
+    DeviceTitle.Size = UDim2.new(1, 0, 0, 24)
+    DeviceTitle.Position = UDim2.new(0, 0, 0, 84)
     DeviceTitle.BackgroundTransparency = 1
-    DeviceTitle.Text = "Select Device / เลือกอุปกรณ์"
+    DeviceTitle.Text = "Select Device"
     DeviceTitle.TextColor3 = AppConfig.TextPrimary
     DeviceTitle.TextSize = AppConfig.TextTitle
     DeviceTitle.Font = Enum.Font.GothamBold
@@ -312,9 +323,9 @@ function UI.mount()
 
     local DeviceSub = Instance.new("TextLabel")
     DeviceSub.Size = UDim2.new(1, 0, 0, 16)
-    DeviceSub.Position = UDim2.new(0, 0, 0, 40)
+    DeviceSub.Position = UDim2.new(0, 0, 0, 108)
     DeviceSub.BackgroundTransparency = 1
-    DeviceSub.Text = "Sidebar Navigation • Nested Card Architecture"
+    DeviceSub.Text = "LuxuryXHUB v" .. AppConfig.Version
     DeviceSub.TextColor3 = AppConfig.TextMuted
     DeviceSub.TextSize = AppConfig.TextCaption
     DeviceSub.Font = Enum.Font.GothamMedium
@@ -322,7 +333,7 @@ function UI.mount()
 
     local PCBtn = Instance.new("TextButton")
     PCBtn.Size = UDim2.new(0.5, -14, 0, 48)
-    PCBtn.Position = UDim2.new(0, 10, 0, 76)
+    PCBtn.Position = UDim2.new(0, 10, 0, 138)
     PCBtn.BackgroundColor3 = AppConfig.NestedCardBg
     PCBtn.Text = "💻  PC Mode"
     PCBtn.TextColor3 = AppConfig.TextPrimary
@@ -333,7 +344,7 @@ function UI.mount()
 
     local MobileBtn = Instance.new("TextButton")
     MobileBtn.Size = UDim2.new(0.5, -14, 0, 48)
-    MobileBtn.Position = UDim2.new(0.5, 4, 0, 76)
+    MobileBtn.Position = UDim2.new(0.5, 4, 0, 138)
     MobileBtn.BackgroundColor3 = AppConfig.NestedCardBg
     MobileBtn.Text = "📱  Mobile"
     MobileBtn.TextColor3 = AppConfig.TextPrimary
@@ -358,7 +369,9 @@ function UI.mount()
     MainFrame.Parent = ScreenGui
     UI.applyCard(MainFrame, AppConfig.Radius2XL, AppConfig.BgColor, AppConfig.CardBorder)
 
-    -- TopBar
+    -- ══════════════════════════════════════════════════════════════
+    -- TOPBAR
+    -- ══════════════════════════════════════════════════════════════
     local TopBar = Instance.new("Frame")
     TopBar.Name = "TopBar"
     TopBar.Size = UDim2.new(1, 0, 0, 46)
@@ -375,21 +388,31 @@ function UI.mount()
     TopDivider.BorderSizePixel = 0
     TopDivider.Parent = TopBar
 
+    -- ⭐ LOGO in TopBar
+    local LogoImage = Instance.new("ImageLabel")
+    LogoImage.Name = "LogoImage"
+    LogoImage.Size = UDim2.new(0, 36, 0, 36)
+    LogoImage.Position = UDim2.new(0, 10, 0.5, -18)
+    LogoImage.BackgroundTransparency = 1
+    LogoImage.Image = LOGO_URL
+    LogoImage.ScaleType = Enum.ScaleType.Fit
+    LogoImage.Parent = TopBar
+
     local TitleLabel = Instance.new("TextLabel")
     TitleLabel.Size = UDim2.new(0, 320, 0, 20)
-    TitleLabel.Position = UDim2.new(0, 58, 0, 6)
+    TitleLabel.Position = UDim2.new(0, 54, 0, 6)
     TitleLabel.BackgroundTransparency = 1
     TitleLabel.Text = "Luxury<font color='#00e676'>X</font>HUB"
-    LogoImage.Image = "https://yourimageshare.com/ib/K3HDoXCNox.png"        
     TitleLabel.RichText = true
     TitleLabel.TextColor3 = AppConfig.TextPrimary
     TitleLabel.TextSize = AppConfig.TextTitle
     TitleLabel.Font = Enum.Font.GothamBold
     TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
     TitleLabel.Parent = TopBar
+
     local SubLabel = Instance.new("TextLabel")
     SubLabel.Size = UDim2.new(0, 320, 0, 14)
-    SubLabel.Position = UDim2.new(0, 58, 0, 27)
+    SubLabel.Position = UDim2.new(0, 54, 0, 27)
     SubLabel.BackgroundTransparency = 1
     SubLabel.Text = "v" .. AppConfig.Version
     SubLabel.TextColor3 = AppConfig.TextMuted
@@ -397,6 +420,7 @@ function UI.mount()
     SubLabel.Font = Enum.Font.GothamMedium
     SubLabel.TextXAlignment = Enum.TextXAlignment.Left
     SubLabel.Parent = TopBar
+
     local QuickStatusPill = Instance.new("Frame")
     QuickStatusPill.Size = UDim2.new(0, 160, 0, 26)
     QuickStatusPill.Position = UDim2.new(1, -300, 0.5, -13)
@@ -1075,7 +1099,7 @@ function UI.mount()
                 emptyLabel.Name = "EmptyLabel"
                 emptyLabel.Size = UDim2.new(1, -10, 0, 40)
                 emptyLabel.BackgroundTransparency = 1
-                emptyLabel.Text = "No Eggs Found / ไม่พบไข่"
+                emptyLabel.Text = "No Eggs Found"
                 emptyLabel.TextColor3 = AppConfig.TextMuted
                 emptyLabel.TextSize = AppConfig.TextBody
                 emptyLabel.Font = Enum.Font.GothamMedium
@@ -1301,31 +1325,31 @@ function UI.mount()
         updateStatus("Engine Halted", AppConfig.AccentRed)
     end)
 
-    UI.createToggle(FarmScroll, "Auto Selected Eggs Farm", "คำนวณและฟาร์มไข่เฉพาะรายการที่เลือกไว้", StateStore.autoFarmActive, function(enabled)
+    UI.createToggle(FarmScroll, "Auto Selected Eggs Farm", "Farm only selected eggs", StateStore.autoFarmActive, function(enabled)
         if enabled then Farm.startAutoFarm(updateStatus, nil)
         else Farm.stopAutoFarm(); updateStatus("AutoFarm Stopped", AppConfig.TextSecondary) end
     end)
 
-    UI.createToggle(FarmScroll, "Auto Best Egg Target", "ค้นหาและเก็บไข่ที่ดีที่สุดโดยอัตโนมัติ", StateStore.autoBestEggActive, function(enabled)
+    UI.createToggle(FarmScroll, "Auto Best Egg Target", "Auto-find best egg", StateStore.autoBestEggActive, function(enabled)
         if enabled then Farm.startAutoBestEgg(updateStatus)
         else Farm.stopAutoBestEgg(); updateStatus("Best Egg Farm Stopped", AppConfig.TextSecondary) end
     end)
 
-    UI.createToggle(FarmScroll, "Auto Rebirth & Collect", "เก็บไข่ที่ขาดและกด Rebirth อัตโนมัติ", StateStore.autoRebirthActive, function(enabled)
+    UI.createToggle(FarmScroll, "Auto Rebirth & Collect", "Auto rebirth + collect", StateStore.autoRebirthActive, function(enabled)
         if enabled then Rebirth.startAutoRebirth(updateStatus, nil)
         else Rebirth.stopAutoRebirth(); updateStatus("Auto Rebirth Stopped", AppConfig.TextSecondary) end
     end)
 
-    UI.createSlider(FarmScroll, "Movement Speed (ความเร็ว)", 200, 1000, AppConfig.MovementSpeed, "studs/s", function(val)
+    UI.createSlider(FarmScroll, "Movement Speed", 200, 1000, AppConfig.MovementSpeed, "studs/s", function(val)
         AppConfig.MovementSpeed = val
     end)
 
-    UI.createSlider(FarmScroll, "Auto Collect Hold (กด E)", 0.5, 5, AppConfig.AutoFarmHoldTime, "sec", function(val)
+    UI.createSlider(FarmScroll, "Auto Collect Hold", 0.5, 5, AppConfig.AutoFarmHoldTime, "sec", function(val)
         AppConfig.AutoFarmHoldTime = val
         AppConfig.AutoEggHoldTime = val
     end)
 
-    UI.createSlider(FarmScroll, "Egg Cooldown (คูลดาวน์)", 5, 30, AppConfig.EggCooldownSeconds, "sec", function(val)
+    UI.createSlider(FarmScroll, "Egg Cooldown", 5, 30, AppConfig.EggCooldownSeconds, "sec", function(val)
         AppConfig.EggCooldownSeconds = val
     end)
 
@@ -1464,7 +1488,7 @@ function UI.mount()
 
     TPHomeBtn.MouseButton1Click:Connect(function()
         local ok = Plot.teleportAndDeposit()
-        if ok then updateStatus("At Home Plot (Egg Cleared)", AppConfig.AccentGreen)
+        if ok then updateStatus("At Home Plot", AppConfig.AccentGreen)
         else updateStatus("Home Plot Not Found", AppConfig.AccentRed) end
     end)
 
@@ -1474,16 +1498,14 @@ function UI.mount()
         if StateStore.antiAFKActive then
             AntiAFKToggleBtn.Text = "🛡️ Anti-AFK: ON"
             AntiAFKToggleBtn.TextColor3 = AppConfig.AccentGreen
-            updateStatus("Anti-AFK Active", AppConfig.AccentGreen)
         else
             AntiAFKToggleBtn.Text = "🛡️ Anti-AFK: OFF"
             AntiAFKToggleBtn.TextColor3 = AppConfig.TextMuted
-            updateStatus("Anti-AFK Inactive", AppConfig.TextSecondary)
         end
     end)
 
     -- ══════════════════════════════════════════════════════════════
-    -- [TAB 3] TIME & SESSION
+    -- [TAB 3] TIME
     -- ══════════════════════════════════════════════════════════════
     local TimePanel = tabPanels["Time"]
 
@@ -1504,35 +1526,6 @@ function UI.mount()
     TimeScrollLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         TimeScroll.CanvasSize = UDim2.new(0, 0, 0, TimeScrollLayout.AbsoluteContentSize.Y + 12)
     end)
-
-    local TimeHeaderCard = Instance.new("Frame")
-    TimeHeaderCard.Size = UDim2.new(1, -4, 0, 56)
-    TimeHeaderCard.LayoutOrder = 1
-    TimeHeaderCard.BackgroundColor3 = AppConfig.NestedCardBg
-    TimeHeaderCard.Parent = TimeScroll
-    UI.applyCard(TimeHeaderCard, AppConfig.RadiusXL, AppConfig.NestedCardBg, AppConfig.AccentBlue, 0.55)
-
-    local TimeHeaderTitle = Instance.new("TextLabel")
-    TimeHeaderTitle.Size = UDim2.new(1, -20, 0, 20)
-    TimeHeaderTitle.Position = UDim2.new(0, 14, 0, 8)
-    TimeHeaderTitle.BackgroundTransparency = 1
-    TimeHeaderTitle.Text = "⏱️  Time & Session Monitor"
-    TimeHeaderTitle.TextColor3 = AppConfig.AccentBlue
-    TimeHeaderTitle.TextSize = AppConfig.TextHeader
-    TimeHeaderTitle.Font = Enum.Font.GothamBold
-    TimeHeaderTitle.TextXAlignment = Enum.TextXAlignment.Left
-    TimeHeaderTitle.Parent = TimeHeaderCard
-
-    local TimeHeaderSub = Instance.new("TextLabel")
-    TimeHeaderSub.Size = UDim2.new(1, -20, 0, 16)
-    TimeHeaderSub.Position = UDim2.new(0, 14, 0, 30)
-    TimeHeaderSub.BackgroundTransparency = 1
-    TimeHeaderSub.Text = "Real-time clock • uptime • throughput"
-    TimeHeaderSub.TextColor3 = AppConfig.TextMuted
-    TimeHeaderSub.TextSize = AppConfig.TextCaption
-    TimeHeaderSub.Font = Enum.Font.GothamMedium
-    TimeHeaderSub.TextXAlignment = Enum.TextXAlignment.Left
-    TimeHeaderSub.Parent = TimeHeaderCard
 
     local BigClockCard = Instance.new("Frame")
     BigClockCard.Size = UDim2.new(1, -4, 0, 92)
@@ -1649,7 +1642,7 @@ function UI.mount()
     TcTitle.Size = UDim2.new(1, -20, 0, 20)
     TcTitle.Position = UDim2.new(0, 14, 0, 8)
     TcTitle.BackgroundTransparency = 1
-    TcTitle.Text = "🥚  Total Collected This Session"
+    TcTitle.Text = "🥚  Total Collected"
     TcTitle.TextColor3 = AppConfig.TextPrimary
     TcTitle.TextSize = AppConfig.TextHeader
     TcTitle.Font = Enum.Font.GothamBold
@@ -1678,46 +1671,6 @@ function UI.mount()
     TotalCaptionLabel.Font = Enum.Font.GothamMedium
     TotalCaptionLabel.TextXAlignment = Enum.TextXAlignment.Center
     TotalCaptionLabel.Parent = TotalsCard
-
-    local TimeControlsCard = Instance.new("Frame")
-    TimeControlsCard.Size = UDim2.new(1, -4, 0, 76)
-    TimeControlsCard.LayoutOrder = 5
-    TimeControlsCard.BackgroundColor3 = AppConfig.NestedCardBg
-    TimeControlsCard.Parent = TimeScroll
-    UI.applyCard(TimeControlsCard, AppConfig.RadiusXL, AppConfig.NestedCardBg, AppConfig.BorderInner)
-
-    local TctTitle = Instance.new("TextLabel")
-    TctTitle.Size = UDim2.new(1, -20, 0, 20)
-    TctTitle.Position = UDim2.new(0, 14, 0, 8)
-    TctTitle.BackgroundTransparency = 1
-    TctTitle.Text = "Session Controls"
-    TctTitle.TextColor3 = AppConfig.TextPrimary
-    TctTitle.TextSize = AppConfig.TextHeader
-    TctTitle.Font = Enum.Font.GothamBold
-    TctTitle.TextXAlignment = Enum.TextXAlignment.Left
-    TctTitle.Parent = TimeControlsCard
-
-    local ResetSessionBtn = Instance.new("TextButton")
-    ResetSessionBtn.Size = UDim2.new(0.5, -18, 0, 30)
-    ResetSessionBtn.Position = UDim2.new(0, 10, 0, 36)
-    ResetSessionBtn.BackgroundColor3 = AppConfig.RecessedBg
-    ResetSessionBtn.Text = "🔄 Reset Session Timer"
-    ResetSessionBtn.TextColor3 = AppConfig.AccentGreen
-    ResetSessionBtn.TextSize = AppConfig.TextCaption
-    ResetSessionBtn.Font = Enum.Font.GothamBold
-    ResetSessionBtn.Parent = TimeControlsCard
-    UI.styleButton(ResetSessionBtn, AppConfig.RadiusMD, AppConfig.RecessedBg)
-
-    local ResetCountsBtn = Instance.new("TextButton")
-    ResetCountsBtn.Size = UDim2.new(0.5, -18, 0, 30)
-    ResetCountsBtn.Position = UDim2.new(0.5, 8, 0, 36)
-    ResetCountsBtn.BackgroundColor3 = AppConfig.RecessedBg
-    ResetCountsBtn.Text = "🧹 Reset Egg Counters"
-    ResetCountsBtn.TextColor3 = AppConfig.AccentRed
-    ResetCountsBtn.TextSize = AppConfig.TextCaption
-    ResetCountsBtn.Font = Enum.Font.GothamBold
-    ResetCountsBtn.Parent = TimeControlsCard
-    UI.styleButton(ResetCountsBtn, AppConfig.RadiusMD, AppConfig.RecessedBg)
 
     local function refreshTimeLabels()
         local now = os.time()
@@ -1755,19 +1708,6 @@ function UI.mount()
     StateStore.onTimeUpdated = refreshTimeLabels
     refreshTimeLabels()
 
-    ResetSessionBtn.MouseButton1Click:Connect(function()
-        StateStore.sessionStartTime = os.time()
-        TmStartTimeValue.Text = os.date("%H:%M:%S", StateStore.sessionStartTime)
-        refreshTimeLabels()
-        updateStatus("Session timer reset", AppConfig.AccentGreen)
-    end)
-
-    ResetCountsBtn.MouseButton1Click:Connect(function()
-        StateStore.totalEggsCollected = 0
-        refreshTimeLabels()
-        updateStatus("Egg counters reset", AppConfig.AccentRed)
-    end)
-
     -- ══════════════════════════════════════════════════════════════
     -- [TAB 4] HISTORY
     -- ══════════════════════════════════════════════════════════════
@@ -1783,7 +1723,7 @@ function UI.mount()
     HistTitle.Size = UDim2.new(1, -100, 1, 0)
     HistTitle.Position = UDim2.new(0, 14, 0, 0)
     HistTitle.BackgroundTransparency = 1
-    HistTitle.Text = "📜  Egg Farm Collection Timeline"
+    HistTitle.Text = "📜  Collection Timeline"
     HistTitle.TextColor3 = AppConfig.AccentGold
     HistTitle.TextSize = AppConfig.TextHeader
     HistTitle.Font = Enum.Font.GothamBold
@@ -1836,7 +1776,7 @@ function UI.mount()
             local emptyLabel = Instance.new("TextLabel")
             emptyLabel.Size = UDim2.new(1, 0, 0, 40)
             emptyLabel.BackgroundTransparency = 1
-            emptyLabel.Text = "No farm history recorded yet"
+            emptyLabel.Text = "No farm history yet"
             emptyLabel.TextColor3 = AppConfig.TextMuted
             emptyLabel.TextSize = AppConfig.TextBody
             emptyLabel.Font = Enum.Font.GothamMedium
@@ -1889,7 +1829,7 @@ function UI.mount()
     ClearHistoryBtn.MouseButton1Click:Connect(function()
         table.clear(StateStore.farmHistory)
         updateHistoryUI()
-        updateStatus("Farm history cleared", AppConfig.AccentRed)
+        updateStatus("History cleared", AppConfig.AccentRed)
     end)
 
     -- ══════════════════════════════════════════════════════════════
@@ -1926,7 +1866,7 @@ function UI.mount()
     DstTitle.Size = UDim2.new(1, -20, 0, 20)
     DstTitle.Position = UDim2.new(0, 14, 0, 8)
     DstTitle.BackgroundTransparency = 1
-    DstTitle.Text = "Display & Screen Geometry Mode"
+    DstTitle.Text = "Display Mode"
     DstTitle.TextColor3 = AppConfig.TextPrimary
     DstTitle.TextSize = AppConfig.TextHeader
     DstTitle.Font = Enum.Font.GothamBold
@@ -1937,7 +1877,7 @@ function UI.mount()
     SetPCBtn.Size = UDim2.new(0.5, -18, 0, 30)
     SetPCBtn.Position = UDim2.new(0, 10, 0, 36)
     SetPCBtn.BackgroundColor3 = AppConfig.RecessedBg
-    SetPCBtn.Text = "💻 PC Layout (760x480)"
+    SetPCBtn.Text = "💻 PC Layout"
     SetPCBtn.TextColor3 = AppConfig.TextPrimary
     SetPCBtn.TextSize = AppConfig.TextCaption
     SetPCBtn.Font = Enum.Font.GothamBold
@@ -1948,14 +1888,13 @@ function UI.mount()
     SetMobileBtn.Size = UDim2.new(0.5, -18, 0, 30)
     SetMobileBtn.Position = UDim2.new(0.5, 8, 0, 36)
     SetMobileBtn.BackgroundColor3 = AppConfig.RecessedBg
-    SetMobileBtn.Text = "📱 Mobile Layout (620x400)"
+    SetMobileBtn.Text = "📱 Mobile Layout"
     SetMobileBtn.TextColor3 = AppConfig.TextPrimary
     SetMobileBtn.TextSize = AppConfig.TextCaption
     SetMobileBtn.Font = Enum.Font.GothamBold
     SetMobileBtn.Parent = DevSetCard
     UI.styleButton(SetMobileBtn, AppConfig.RadiusMD, AppConfig.RecessedBg)
 
-    -- Keybind Card
     local KeybindCard = Instance.new("Frame")
     KeybindCard.Size = UDim2.new(1, -4, 0, 76)
     KeybindCard.LayoutOrder = 2
@@ -1967,7 +1906,7 @@ function UI.mount()
     KbTitle.Size = UDim2.new(1, -20, 0, 20)
     KbTitle.Position = UDim2.new(0, 14, 0, 8)
     KbTitle.BackgroundTransparency = 1
-    KbTitle.Text = "Teleport Home & Deposit Keybind"
+    KbTitle.Text = "Teleport Home Keybind"
     KbTitle.TextColor3 = AppConfig.TextPrimary
     KbTitle.TextSize = AppConfig.TextHeader
     KbTitle.Font = Enum.Font.GothamBold
@@ -1978,7 +1917,7 @@ function UI.mount()
     KeybindBtn.Size = UDim2.new(1, -20, 0, 30)
     KeybindBtn.Position = UDim2.new(0, 10, 0, 36)
     KeybindBtn.BackgroundColor3 = AppConfig.RecessedBg
-    KeybindBtn.Text = "⌨️  Current Keybind: [" .. StateStore.tpKeybind.Name .. "]"
+    KeybindBtn.Text = "⌨️  Keybind: [" .. StateStore.tpKeybind.Name .. "]"
     KeybindBtn.TextColor3 = AppConfig.AccentGold
     KeybindBtn.TextSize = AppConfig.TextCaption
     KeybindBtn.Font = Enum.Font.GothamBold
@@ -1987,7 +1926,7 @@ function UI.mount()
 
     KeybindBtn.MouseButton1Click:Connect(function()
         StateStore.listeningForKey = true
-        KeybindBtn.Text = "⌨️  Press any key now..."
+        KeybindBtn.Text = "⌨️  Press any key..."
         KeybindBtn.TextColor3 = AppConfig.AccentGreen
     end)
 
@@ -2002,7 +1941,7 @@ function UI.mount()
     PltTitle.Size = UDim2.new(1, -20, 0, 20)
     PltTitle.Position = UDim2.new(0, 14, 0, 8)
     PltTitle.BackgroundTransparency = 1
-    PltTitle.Text = "Home Plot Detection Diagnostic"
+    PltTitle.Text = "Home Plot Diagnostic"
     PltTitle.TextColor3 = AppConfig.TextPrimary
     PltTitle.TextSize = AppConfig.TextHeader
     PltTitle.Font = Enum.Font.GothamBold
@@ -2013,7 +1952,7 @@ function UI.mount()
     CheckPlotBtn.Size = UDim2.new(1, -20, 0, 30)
     CheckPlotBtn.Position = UDim2.new(0, 10, 0, 36)
     CheckPlotBtn.BackgroundColor3 = AppConfig.RecessedBg
-    CheckPlotBtn.Text = "🔍 Check Home Plot Link"
+    CheckPlotBtn.Text = "🔍 Check Home Plot"
     CheckPlotBtn.TextColor3 = AppConfig.TextPrimary
     CheckPlotBtn.TextSize = AppConfig.TextCaption
     CheckPlotBtn.Font = Enum.Font.GothamBold
@@ -2023,11 +1962,11 @@ function UI.mount()
     CheckPlotBtn.MouseButton1Click:Connect(function()
         local plot = Plot.findHomePlot()
         if plot then
-            updateStatus("Plot Linked: " .. plot.Name, AppConfig.AccentGreen)
-            CheckPlotBtn.Text = "✅ Home Plot: " .. plot.Name
+            updateStatus("Plot: " .. plot.Name, AppConfig.AccentGreen)
+            CheckPlotBtn.Text = "✅ " .. plot.Name
         else
-            updateStatus("No Home Plot Detected", AppConfig.AccentRed)
-            CheckPlotBtn.Text = "❌ No Home Plot Linked"
+            updateStatus("No Plot Detected", AppConfig.AccentRed)
+            CheckPlotBtn.Text = "❌ No Home Plot"
         end
     end)
 
@@ -2072,7 +2011,7 @@ function UI.mount()
         badge.Size = UDim2.new(1, -120, 0, 14)
         badge.Position = UDim2.new(0, 56, 0, 8)
         badge.BackgroundTransparency = 1
-        badge.Text = "✨ RARE EGG SPAWNED!"
+        badge.Text = "✨ RARE EGG!"
         badge.TextColor3 = AppConfig.AccentGold
         badge.TextSize = AppConfig.TextCaption
         badge.Font = Enum.Font.GothamBold
@@ -2096,7 +2035,7 @@ function UI.mount()
         distLabel.Position = UDim2.new(0, 56, 0, 40)
         distLabel.BackgroundTransparency = 1
         local d = Utils.getDistanceToTarget(egg)
-        distLabel.Text = (d ~= math.huge) and string.format("📍 %dst away", math.floor(d + 0.5)) or "📍 Unknown"
+        distLabel.Text = (d ~= math.huge) and string.format("📍 %dst", math.floor(d + 0.5)) or "📍 ?"
         distLabel.TextColor3 = AppConfig.TextSecondary
         distLabel.TextSize = AppConfig.TextCaption
         distLabel.Font = Enum.Font.GothamMedium
@@ -2117,7 +2056,7 @@ function UI.mount()
         tpBtn.MouseButton1Click:Connect(function()
             if egg and egg.Parent then
                 Movement.teleportTo(egg)
-                updateStatus("Teleported to " .. egg.Name, AppConfig.AccentGold)
+                updateStatus("TP to " .. egg.Name, AppConfig.AccentGold)
             end
             pcall(function() card:Destroy() end)
         end)
@@ -2167,15 +2106,14 @@ function UI.mount()
         end
     end))
 
-    -- Keybind handler
     StateStore.track(S.UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if StateStore.listeningForKey then
             if input.UserInputType == Enum.UserInputType.Keyboard then
                 StateStore.tpKeybind = input.KeyCode
                 StateStore.listeningForKey = false
-                KeybindBtn.Text = "⌨️  Current Keybind: [" .. StateStore.tpKeybind.Name .. "]"
+                KeybindBtn.Text = "⌨️  Keybind: [" .. StateStore.tpKeybind.Name .. "]"
                 KeybindBtn.TextColor3 = AppConfig.AccentGold
-                updateStatus("Keybind Set: " .. StateStore.tpKeybind.Name, AppConfig.AccentGreen)
+                updateStatus("Keybind: " .. StateStore.tpKeybind.Name, AppConfig.AccentGreen)
             end
             return
         end
@@ -2206,9 +2144,6 @@ function UI.mount()
         end
     end))
 
-    -- ══════════════════════════════════════════════════════════════
-    -- DEVICE MODE
-    -- ══════════════════════════════════════════════════════════════
     local function applyMode(mode)
         StateStore.windowMode = mode
         StateStore.isMobileMode = (mode == "Mobile")
@@ -2235,9 +2170,6 @@ function UI.mount()
         task.defer(function() applyMode("Mobile") end)
     end
 
-    -- ══════════════════════════════════════════════════════════════
-    -- TIME HEARTBEAT
-    -- ══════════════════════════════════════════════════════════════
     local timeTick = 0
     StateStore.track(S.RunService.Heartbeat:Connect(function(dt)
         if not (ScreenGui and ScreenGui.Parent) then return end
