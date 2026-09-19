@@ -34,7 +34,7 @@ local lastSentAt = 0
 local sentCount = 0
 local errorCount = 0
 
-local FLAG_COMPONENTS_V2 = 1 << 15  -- 32768
+local FLAG_COMPONENTS_V2 = 32768
 
 -- ═══════════════════════════════════════════════════════════════════
 -- PLAYER INFO HELPERS
