@@ -2078,16 +2078,20 @@ function UI.mount()
         end)
     end
 
-        -- ══════════════════════════════════════════════════════════════
-    -- WEBHOOK SETTINGS
+         -- ══════════════════════════════════════════════════════════════
+    -- WEBHOOK SETTINGS (FIXED — กดได้แน่นอน)
     -- ══════════════════════════════════════════════════════════════
     local WebhookCard = Instance.new("Frame")
-    WebhookCard.Size = UDim2.new(1, -4, 0, 210)
+    WebhookCard.Name = "WebhookCard"
+    WebhookCard.Size = UDim2.new(1, -4, 0, 220)
     WebhookCard.LayoutOrder = 4
     WebhookCard.BackgroundColor3 = AppConfig.NestedCardBg
+    WebhookCard.Active = true
+    WebhookCard.ClipsDescendants = false
     WebhookCard.Parent = SettingsScroll
     UI.applyCard(WebhookCard, AppConfig.RadiusXL, AppConfig.NestedCardBg, AppConfig.BorderInner)
 
+    -- Title
     local WbTitle = Instance.new("TextLabel")
     WbTitle.Size = UDim2.new(1, -20, 0, 20)
     WbTitle.Position = UDim2.new(0, 14, 0, 8)
@@ -2099,8 +2103,10 @@ function UI.mount()
     WbTitle.TextXAlignment = Enum.TextXAlignment.Left
     WbTitle.Parent = WebhookCard
 
+    -- URL TextBox
     local WbUrlBox = Instance.new("TextBox")
-    WbUrlBox.Size = UDim2.new(1, -20, 0, 30)
+    WbUrlBox.Name = "WbUrlBox"
+    WbUrlBox.Size = UDim2.new(1, -20, 0, 32)
     WbUrlBox.Position = UDim2.new(0, 10, 0, 34)
     WbUrlBox.BackgroundColor3 = AppConfig.RecessedBg
     WbUrlBox.PlaceholderText = "Paste webhook URL..."
@@ -2111,30 +2117,49 @@ function UI.mount()
     WbUrlBox.Font = Enum.Font.GothamMedium
     WbUrlBox.TextXAlignment = Enum.TextXAlignment.Left
     WbUrlBox.ClearTextOnFocus = false
+    WbUrlBox.ZIndex = 5
     WbUrlBox.Parent = WebhookCard
     UI.styleInput(WbUrlBox, AppConfig.RadiusMD)
 
-    WbUrlBox.FocusLost:Connect(function()
+    local function saveWebhookUrl()
         if NS.Webhook then
             NS.Webhook.Config.Url = WbUrlBox.Text
+            print("[Webhook] URL saved:", WbUrlBox.Text)
             updateStatus("Webhook URL saved", AppConfig.AccentBlue)
         end
-    end)
+    end
+    WbUrlBox.FocusLost:Connect(saveWebhookUrl)
+    WbUrlBox.ReturnPressedFromOnScreenKeyboard:Connect(saveWebhookUrl)
 
+    -- ══════════════════════════════════════════════════════════════
+    -- ปุ่มทั้ง 3 — ใช้ Handler เดียว + ผูก 3 event (ชัวร์ 100%)
+    -- ══════════════════════════════════════════════════════════════
+
+    -- ─── ปุ่ม Enable ───
     local WbEnableBtn = Instance.new("TextButton")
-    WbEnableBtn.Size = UDim2.new(0.33, -10, 0, 28)
-    WbEnableBtn.Position = UDim2.new(0, 10, 0, 72)
+    WbEnableBtn.Name = "WbEnableBtn"
+    WbEnableBtn.Size = UDim2.new(0.33, -10, 0, 32)
+    WbEnableBtn.Position = UDim2.new(0, 10, 0, 74)
     WbEnableBtn.BackgroundColor3 = (NS.Webhook and NS.Webhook.Config.Enabled) and AppConfig.AccentGreen or AppConfig.RecessedBg
     WbEnableBtn.Text = (NS.Webhook and NS.Webhook.Config.Enabled) and "🔔 ON" or "🔕 OFF"
     WbEnableBtn.TextColor3 = (NS.Webhook and NS.Webhook.Config.Enabled) and Color3.fromRGB(10, 20, 15) or AppConfig.TextMuted
     WbEnableBtn.TextSize = AppConfig.TextCaption
     WbEnableBtn.Font = Enum.Font.GothamBold
+    WbEnableBtn.AutoButtonColor = true
+    WbEnableBtn.ZIndex = 10
+    WbEnableBtn.Active = true
+    WbEnableBtn.Selectable = true
     WbEnableBtn.Parent = WebhookCard
     UI.styleButton(WbEnableBtn, AppConfig.RadiusMD, WbEnableBtn.BackgroundColor3)
 
-    WbEnableBtn.MouseButton1Click:Connect(function()
-        if not NS.Webhook then return end
+    local function onEnableClick()
+        print("[Webhook] Enable clicked")
+        if not NS.Webhook then 
+            warn("[Webhook] NS.Webhook is nil!")
+            return 
+        end
         NS.Webhook.Config.Enabled = not NS.Webhook.Config.Enabled
+        print("[Webhook] Enabled:", NS.Webhook.Config.Enabled)
         if NS.Webhook.Config.Enabled then
             UI.setButtonDefault(WbEnableBtn, AppConfig.AccentGreen)
             WbEnableBtn.Text = "🔔 ON"
@@ -2146,50 +2171,85 @@ function UI.mount()
             WbEnableBtn.TextColor3 = AppConfig.TextMuted
             updateStatus("Webhook: OFF", AppConfig.TextSecondary)
         end
-    end)
+    end
+    WbEnableBtn.MouseButton1Click:Connect(onEnableClick)
+    WbEnableBtn.Activated:Connect(onEnableClick)
 
+    -- ─── ปุ่ม Test ───
     local WbTestBtn = Instance.new("TextButton")
-    WbTestBtn.Size = UDim2.new(0.33, -10, 0, 28)
-    WbTestBtn.Position = UDim2.new(0.33, 0, 0, 72)
+    WbTestBtn.Name = "WbTestBtn"
+    WbTestBtn.Size = UDim2.new(0.33, -10, 0, 32)
+    WbTestBtn.Position = UDim2.new(0.33, 0, 0, 74)
     WbTestBtn.BackgroundColor3 = AppConfig.RecessedBg
     WbTestBtn.Text = "🧪 Test"
     WbTestBtn.TextColor3 = AppConfig.AccentBlue
     WbTestBtn.TextSize = AppConfig.TextCaption
     WbTestBtn.Font = Enum.Font.GothamBold
+    WbTestBtn.AutoButtonColor = true
+    WbTestBtn.ZIndex = 10
+    WbTestBtn.Active = true
+    WbTestBtn.Selectable = true
     WbTestBtn.Parent = WebhookCard
     UI.styleButton(WbTestBtn, AppConfig.RadiusMD, AppConfig.RecessedBg)
 
-    WbTestBtn.MouseButton1Click:Connect(function()
-        if not NS.Webhook then return end
+    local function onTestClick()
+        print("[Webhook] Test clicked")
+        if not NS.Webhook then 
+            warn("[Webhook] NS.Webhook is nil!")
+            return 
+        end
+        print("[Webhook] URL:", NS.Webhook.Config.Url)
+        
         if NS.Webhook.Config.Url == "" then
             updateStatus("Enter URL first", AppConfig.AccentRed)
             return
         end
+        
+        -- บังคับเปิดก่อน test
+        NS.Webhook.Config.Enabled = true
+        UI.setButtonDefault(WbEnableBtn, AppConfig.AccentGreen)
+        WbEnableBtn.Text = "🔔 ON"
+        WbEnableBtn.TextColor3 = Color3.fromRGB(10, 20, 15)
+        
         WbTestBtn.Text = "⏳ Sending..."
-        local ok = NS.Webhook.Test()
+        local ok, err = pcall(function()
+            return NS.Webhook.Test()
+        end)
         task.wait(0.5)
         WbTestBtn.Text = "🧪 Test"
+        print("[Webhook] Test result:", ok, err)
+        
         if ok then
             updateStatus("Test sent! Check Discord", AppConfig.AccentGreen)
         else
             updateStatus("Test failed", AppConfig.AccentRed)
         end
-    end)
+    end
+    WbTestBtn.MouseButton1Click:Connect(onTestClick)
+    WbTestBtn.Activated:Connect(onTestClick)
 
+    -- ─── ปุ่ม Rare Only ───
     local WbRareOnlyBtn = Instance.new("TextButton")
-    WbRareOnlyBtn.Size = UDim2.new(0.33, -10, 0, 28)
-    WbRareOnlyBtn.Position = UDim2.new(0.66, 0, 0, 72)
+    WbRareOnlyBtn.Name = "WbRareOnlyBtn"
+    WbRareOnlyBtn.Size = UDim2.new(0.33, -10, 0, 32)
+    WbRareOnlyBtn.Position = UDim2.new(0.66, 0, 0, 74)
     WbRareOnlyBtn.BackgroundColor3 = (NS.Webhook and NS.Webhook.Config.NotifyRareOnly) and AppConfig.AccentGold or AppConfig.RecessedBg
     WbRareOnlyBtn.Text = (NS.Webhook and NS.Webhook.Config.NotifyRareOnly) and "🌟 Rare Only" or "🌟 Rare: OFF"
     WbRareOnlyBtn.TextColor3 = (NS.Webhook and NS.Webhook.Config.NotifyRareOnly) and Color3.fromRGB(15, 15, 20) or AppConfig.TextMuted
     WbRareOnlyBtn.TextSize = AppConfig.TextCaption
     WbRareOnlyBtn.Font = Enum.Font.GothamBold
+    WbRareOnlyBtn.AutoButtonColor = true
+    WbRareOnlyBtn.ZIndex = 10
+    WbRareOnlyBtn.Active = true
+    WbRareOnlyBtn.Selectable = true
     WbRareOnlyBtn.Parent = WebhookCard
     UI.styleButton(WbRareOnlyBtn, AppConfig.RadiusMD, WbRareOnlyBtn.BackgroundColor3)
 
-    WbRareOnlyBtn.MouseButton1Click:Connect(function()
+    local function onRareClick()
+        print("[Webhook] Rare Only clicked")
         if not NS.Webhook then return end
         NS.Webhook.Config.NotifyRareOnly = not NS.Webhook.Config.NotifyRareOnly
+        print("[Webhook] RareOnly:", NS.Webhook.Config.NotifyRareOnly)
         if NS.Webhook.Config.NotifyRareOnly then
             UI.setButtonDefault(WbRareOnlyBtn, AppConfig.AccentGold)
             WbRareOnlyBtn.Text = "🌟 Rare Only"
@@ -2199,11 +2259,16 @@ function UI.mount()
             WbRareOnlyBtn.Text = "🌟 Rare: OFF"
             WbRareOnlyBtn.TextColor3 = AppConfig.TextMuted
         end
-    end)
+    end
+    WbRareOnlyBtn.MouseButton1Click:Connect(onRareClick)
+    WbRareOnlyBtn.Activated:Connect(onRareClick)
 
+    -- ══════════════════════════════════════════════════════════════
+    -- Info + Stats
+    -- ══════════════════════════════════════════════════════════════
     local WbInfoLabel = Instance.new("TextLabel")
     WbInfoLabel.Size = UDim2.new(1, -20, 0, 34)
-    WbInfoLabel.Position = UDim2.new(0, 14, 0, 108)
+    WbInfoLabel.Position = UDim2.new(0, 14, 0, 116)
     WbInfoLabel.BackgroundTransparency = 1
     WbInfoLabel.Text = "📌 Notify only when eggs are collected (after home deposit)"
     WbInfoLabel.TextColor3 = AppConfig.TextSecondary
@@ -2216,7 +2281,7 @@ function UI.mount()
     local WbStatsLabel = Instance.new("TextLabel")
     WbStatsLabel.Name = "WbStatsLabel"
     WbStatsLabel.Size = UDim2.new(1, -20, 0, 18)
-    WbStatsLabel.Position = UDim2.new(0, 14, 0, 152)
+    WbStatsLabel.Position = UDim2.new(0, 14, 0, 158)
     WbStatsLabel.BackgroundTransparency = 1
     WbStatsLabel.Text = "📊 Sent: 0 | Errors: 0"
     WbStatsLabel.TextColor3 = AppConfig.TextMuted
