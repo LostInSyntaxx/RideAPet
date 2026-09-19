@@ -6,18 +6,28 @@
 ]]
 
 local CONFIG = {
-    BASE_URL    = "https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/main/src/", 
+    BASE_URL    = "https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/main/src/",
     VERSION_URL = "https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/main/version.txt",
     CACHE_DIR   = "RideAPet_cache",
     USE_DISK_CACHE = true,
     FORCE_REFRESH = false,
     MAX_RETRIES = 3,
+
     MODULES = {
-        "Config", "Services", "State", "Utils",
-        "Stability", "Interaction", "Movement",
-        "Plot", "ESP", "Farm", "Rebirth",
-        "UI", "Bootstrap",
-        "Webhook", 
+        "Config",
+        "Services",
+        "State",
+        "Utils",
+        "Webhook",
+        "Stability",
+        "Interaction",
+        "Movement",
+        "Plot",
+        "ESP",
+        "Farm",
+        "Rebirth",
+        "UI",
+        "Bootstrap",
     },
     REQUIRED = {
         "Config", "Services", "State", "Utils",

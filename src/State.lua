@@ -1,3 +1,4 @@
+-- State.lua — StateStore
 local NS = getgenv().EggsESP
 local AppConfig = NS.Config
 local S = NS.Services
@@ -63,12 +64,14 @@ function StateStore.addHistoryRecord(eggName)
     StateStore.totalEggsCollected = StateStore.totalEggsCollected + 1
     if StateStore.onHistoryUpdated then StateStore.onHistoryUpdated() end
 
+    -- ⭐ Webhook notification
     if NS.Webhook then
         task.spawn(function()
             NS.Webhook.NotifyEggCollected(eggName, isRare)
         end)
     end
 end
+
 function StateStore.shouldAlert(eggName)
     local now = os.clock()
     local last = StateStore.recentAlerts[eggName]

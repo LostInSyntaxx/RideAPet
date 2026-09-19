@@ -42,12 +42,6 @@ end
 local function startApplication()
     cleanup()
 
-    if NS.Webhook then
-
-    task.delay(2, function()
-        NS.Webhook.NotifyStartup()
-    end)
-
     if not UI then
         warn("[Bootstrap] UI module missing — cannot mount")
         return
@@ -59,8 +53,7 @@ local function startApplication()
     end
 
     local UIResult = UI.mount()
-    local originalShowRare = UIResult.showRareAlert
-    
+
     StateStore.track(S.LocalPlayer.CharacterAdded:Connect(function()
         Movement.stop()
         task.wait(1.0)
