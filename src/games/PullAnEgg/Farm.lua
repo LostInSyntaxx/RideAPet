@@ -226,9 +226,9 @@ function Farm.startAutoBuyDumbell()
             for i = 1, 30 do
                 if not Config.AutoBuyDumbell then break end
                 Remotes.buyDumbell(i)
-                task.wait(0.15)
+                task.wait(0.05) -- Fix: synced from 0.15 (speed optimization)
             end
-            task.wait(2)
+            task.wait(1) -- Fix: synced from 2 (speed optimization)
         end
         Farm.Threads["AutoBuyDumbell"] = nil
     end)
@@ -245,7 +245,7 @@ function Farm.startAutoUpgradeCarry()
     Farm.Threads["AutoUpgradeCarry"] = task.spawn(function()
         while Config.AutoUpgradeCarry do
             Remotes.upgradeCarry()
-            task.wait(2)
+            task.wait(1) -- Fix: synced from 2 (speed optimization)
         end
         Farm.Threads["AutoUpgradeCarry"] = nil
     end)

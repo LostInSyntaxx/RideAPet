@@ -13,10 +13,10 @@ local Config = {
     TrainInterval   = 0.1, -- Delay between Dumbbell clicks
 
     AutoSell        = false,
-    SellInterval    = 5,   -- Seconds between auto sell fires
+    SellInterval    = 2,   -- Fix: synced from 5 (speed optimization)
 
     AutoRebirth     = false,
-    RebirthInterval = 2,
+    RebirthInterval = 1, -- Fix: synced from 2 (speed optimization)
 
     AutoBuyDumbell  = false,
     AutoUpgradeCarry= false,
