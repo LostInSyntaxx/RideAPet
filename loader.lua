@@ -321,7 +321,7 @@ local function main()
     end
 
     -- ── Multi-Game Routing ─────────────────────────────────────────
-    if game.PlaceId == 70640255604878 or game.GameId == 10649255304 then
+    if game.PlaceId == 70640255604878 then
         Log.info("🎮 Detected Game: Pull An Egg (PlaceId: " .. tostring(game.PlaceId) .. ")")
         local pullEggUrl = "https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/main/scripts/pull_an_egg.lua"
         local ok, scriptContent = pcall(function()
