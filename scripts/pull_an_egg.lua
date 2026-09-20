@@ -470,6 +470,10 @@ function ESP.destroy()
     ESP.Billboards = {}
 end
 
+-- Forward-declare Universal so the UI closures below can reference it
+-- before Section 6 populates its functions.
+local Universal = {}
+
 -- ── 5. User Interface (GUI) ────────────────────────────────────────
 local function getGuiParent()
     local success, hui = pcall(function() return gethui() end)
@@ -1070,7 +1074,7 @@ local function buildUI()
     table.insert(Runtime.Instances, toggleGui)
 end
 -- ── 6. Universal Utilities Module ───────────────────────────────────
-local Universal = {}
+-- (Universal was forward-declared before Section 5; populated here.)
 do
     local TeleportService = game:GetService("TeleportService")
     local HttpService     = game:GetService("HttpService")
