@@ -40,6 +40,8 @@ function UI.build()
     local parent = getGuiParent()
     local old = parent:FindFirstChild("LuxuryXHUB_PullAnEgg")
     if old then old:Destroy() end
+    local oldToggle = parent:FindFirstChild("LuxuryXHUB_FloatingBtn")
+    if oldToggle then oldToggle:Destroy() end
 
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "LuxuryXHUB_PullAnEgg"
@@ -65,6 +67,76 @@ function UI.build()
     mainStroke.Transparency = 0.6
     mainStroke.Thickness = 1.5
     mainStroke.Parent = main
+
+    -- ── Floating Open/Close Toggle Button ────────────────────────────
+    local toggleGui = Instance.new("ScreenGui")
+    toggleGui.Name = "LuxuryXHUB_FloatingBtn"
+    toggleGui.ResetOnSpawn = false
+    toggleGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+    local floatBtn = Instance.new("TextButton")
+    floatBtn.Name = "OpenButton"
+    floatBtn.Size = UDim2.new(0, 50, 0, 50)
+    floatBtn.Position = UDim2.new(0, 20, 0.5, -25)
+    floatBtn.BackgroundColor3 = Color3.fromRGB(20, 22, 32)
+    floatBtn.Text = "🐾"
+    floatBtn.TextSize = 22
+    floatBtn.Parent = toggleGui
+
+    local floatCorner = Instance.new("UICorner")
+    floatCorner.CornerRadius = UDim.new(0, 25)
+    floatCorner.Parent = floatBtn
+
+    local floatStroke = Instance.new("UIStroke")
+    floatStroke.Color = Color3.fromRGB(255, 170, 0)
+    floatStroke.Thickness = 2
+    floatStroke.Parent = floatBtn
+
+    local function toggleUI()
+        main.Visible = not main.Visible
+        if main.Visible then
+            floatBtn.BackgroundColor3 = Color3.fromRGB(255, 170, 0)
+            floatBtn.TextColor3 = Color3.fromRGB(16, 18, 26)
+        else
+            floatBtn.BackgroundColor3 = Color3.fromRGB(20, 22, 32)
+            floatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        end
+    end
+
+    floatBtn.MouseButton1Click:Connect(toggleUI)
+
+    -- Floating Button Draggable
+    local floatDragging, floatDragInput, floatStart, floatPos
+    floatBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            floatDragging = true
+            floatStart = input.Position
+            floatPos = floatBtn.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then floatDragging = false end
+            end)
+        end
+    end)
+
+    floatBtn.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            floatDragInput = input
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input == floatDragInput and floatDragging then
+            local delta = input.Position - floatStart
+            floatBtn.Position = UDim2.new(floatPos.X.Scale, floatPos.X.Offset + delta.X, floatPos.Y.Scale, floatPos.Y.Offset + delta.Y)
+        end
+    end)
+
+    -- Keyboard shortcut
+    UserInputService.InputBegan:Connect(function(input, gpe)
+        if not gpe and (input.KeyCode == Enum.KeyCode.LeftControl or input.KeyCode == Enum.KeyCode.RightControl) then
+            toggleUI()
+        end
+    end)
 
     -- ── Header ───────────────────────────────────────────────────────
     local header = Instance.new("Frame")
@@ -118,7 +190,9 @@ function UI.build()
     closeCorner.Parent = closeBtn
 
     closeBtn.MouseButton1Click:Connect(function()
-        screenGui.Enabled = not screenGui.Enabled
+        main.Visible = false
+        floatBtn.BackgroundColor3 = Color3.fromRGB(20, 22, 32)
+        floatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     end)
 
     -- Make Header Draggable
@@ -365,8 +439,15 @@ function UI.build()
     end)
 
     screenGui.Parent = parent
+    toggleGui.Parent = parent
     UI.ScreenGui = screenGui
+    UI.ToggleGui = toggleGui
     UI.MainFrame = main
+end
+
+function UI.destroy()
+    if UI.ScreenGui then UI.ScreenGui:Destroy() end
+    if UI.ToggleGui then UI.ToggleGui:Destroy() end
 end
 
 return UI

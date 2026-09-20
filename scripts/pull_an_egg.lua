@@ -13,6 +13,13 @@
 ╰────────────────────────────────────────────────────────────────────────────────────╯
 ]]
 
+-- ── 0. Cleanup Previous Instance (Prevent duplicate execution) ──────
+if getgenv().LuxuryXHUB_PullAnEgg and typeof(getgenv().LuxuryXHUB_PullAnEgg.Unload) == "function" then
+    pcall(function()
+        getgenv().LuxuryXHUB_PullAnEgg.Unload()
+    end)
+end
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
@@ -20,6 +27,19 @@ local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
+
+-- ── Runtime Tracker ─────────────────────────────────────────────────
+local Runtime = {
+    Connections = {},
+    Threads = {},
+    Instances = {},
+    Running = true
+}
+
+function Runtime.trackConnection(conn)
+    table.insert(Runtime.Connections, conn)
+    return conn
+end
 
 -- ── 1. Configuration ───────────────────────────────────────────────
 local Config = {
@@ -151,6 +171,7 @@ function Farm.setNoclip(enabled)
                 end
             end
         end)
+        Runtime.trackConnection(noclipConnection)
     else
         local char = LocalPlayer.Character
         if char then
@@ -219,7 +240,7 @@ end
 function Farm.startAutoTrain()
     if Farm.Threads["AutoTrain"] then return end
     Farm.Threads["AutoTrain"] = task.spawn(function()
-        while Config.AutoTrain do
+        while Runtime.Running and Config.AutoTrain do
             Remotes.fire("Activate Dumbell")
             task.wait(Config.TrainInterval or 0.1)
         end
@@ -227,10 +248,15 @@ function Farm.startAutoTrain()
     end)
 end
 
+function Farm.stopAutoTrain()
+    Config.AutoTrain = false
+    Farm.Threads["AutoTrain"] = nil
+end
+
 function Farm.startAutoSell()
     if Farm.Threads["AutoSell"] then return end
     Farm.Threads["AutoSell"] = task.spawn(function()
-        while Config.AutoSell do
+        while Runtime.Running and Config.AutoSell do
             Remotes.fire("Sell All Friends")
             task.wait(Config.SellInterval or 5)
         end
@@ -238,15 +264,25 @@ function Farm.startAutoSell()
     end)
 end
 
+function Farm.stopAutoSell()
+    Config.AutoSell = false
+    Farm.Threads["AutoSell"] = nil
+end
+
 function Farm.startAutoRebirth()
     if Farm.Threads["AutoRebirth"] then return end
     Farm.Threads["AutoRebirth"] = task.spawn(function()
-        while Config.AutoRebirth do
+        while Runtime.Running and Config.AutoRebirth do
             Remotes.fire("Rebirth")
             task.wait(Config.RebirthInterval or 2)
         end
         Farm.Threads["AutoRebirth"] = nil
     end)
+end
+
+function Farm.stopAutoRebirth()
+    Config.AutoRebirth = false
+    Farm.Threads["AutoRebirth"] = nil
 end
 
 function Farm.startAutoPullEgg()
@@ -257,7 +293,7 @@ function Farm.startAutoPullEgg()
             Farm.setNoclip(true)
         end
 
-        while Config.AutoPullEgg do
+        while Runtime.Running and Config.AutoPullEgg do
             local targetTier = Config.TargetEggTier or "Celestial"
             local part = Farm.getPartForTier(targetTier)
             if part then
@@ -292,7 +328,7 @@ function Farm.stopAutoPullEgg()
 end
 
 -- ── 4. ESP Engine ───────────────────────────────────────────────────
-local ESP = { Billboards = {}, Enabled = true }
+local ESP = { Billboards = {}, Enabled = true, Connection = nil }
 
 function ESP.createBillboard(part, tierName, color)
     if part:FindFirstChild("LuxuryXHUB_ESP") then return end
@@ -358,20 +394,23 @@ function ESP.init()
         end
     end
 
-    RunService.RenderStepped:Connect(function()
-        if not ESP.Enabled then return end
-        local char = LocalPlayer.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        if not root then return end
+    if not ESP.Connection then
+        ESP.Connection = RunService.RenderStepped:Connect(function()
+            if not ESP.Enabled then return end
+            local char = LocalPlayer.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            if not root then return end
 
-        local rootPos = root.Position
-        for _, item in ipairs(ESP.Billboards) do
-            if item.Part and item.Part.Parent and item.DistLabel then
-                local dist = math.floor((item.Part.Position - rootPos).Magnitude)
-                item.DistLabel.Text = dist .. " studs"
+            local rootPos = root.Position
+            for _, item in ipairs(ESP.Billboards) do
+                if item.Part and item.Part.Parent and item.DistLabel then
+                    local dist = math.floor((item.Part.Position - rootPos).Magnitude)
+                    item.DistLabel.Text = dist .. " studs"
+                end
             end
-        end
-    end)
+        end)
+        Runtime.trackConnection(ESP.Connection)
+    end
 end
 
 function ESP.setEnabled(state)
@@ -379,6 +418,17 @@ function ESP.setEnabled(state)
     for _, item in ipairs(ESP.Billboards) do
         if item.Billboard then item.Billboard.Enabled = state end
     end
+end
+
+function ESP.destroy()
+    if ESP.Connection then
+        ESP.Connection:Disconnect()
+        ESP.Connection = nil
+    end
+    for _, item in ipairs(ESP.Billboards) do
+        if item.Billboard then item.Billboard:Destroy() end
+    end
+    ESP.Billboards = {}
 end
 
 -- ── 5. User Interface (GUI) ────────────────────────────────────────
@@ -392,8 +442,10 @@ end
 
 local function buildUI()
     local parent = getGuiParent()
-    local old = parent:FindFirstChild("LuxuryXHUB_PullAnEgg")
-    if old then old:Destroy() end
+    local oldMain = parent:FindFirstChild("LuxuryXHUB_PullAnEgg")
+    if oldMain then oldMain:Destroy() end
+    local oldToggle = parent:FindFirstChild("LuxuryXHUB_FloatingBtn")
+    if oldToggle then oldToggle:Destroy() end
 
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "LuxuryXHUB_PullAnEgg"
@@ -419,7 +471,79 @@ local function buildUI()
     mainStroke.Thickness = 1.5
     mainStroke.Parent = main
 
-    -- Header
+    -- ── Floating Open/Close Toggle Button ────────────────────────────
+    local toggleGui = Instance.new("ScreenGui")
+    toggleGui.Name = "LuxuryXHUB_FloatingBtn"
+    toggleGui.ResetOnSpawn = false
+    toggleGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+    local floatBtn = Instance.new("TextButton")
+    floatBtn.Name = "OpenButton"
+    floatBtn.Size = UDim2.new(0, 50, 0, 50)
+    floatBtn.Position = UDim2.new(0, 20, 0.5, -25)
+    floatBtn.BackgroundColor3 = Color3.fromRGB(20, 22, 32)
+    floatBtn.Text = "🐾"
+    floatBtn.TextSize = 22
+    floatBtn.Parent = toggleGui
+
+    local floatCorner = Instance.new("UICorner")
+    floatCorner.CornerRadius = UDim.new(0, 25)
+    floatCorner.Parent = floatBtn
+
+    local floatStroke = Instance.new("UIStroke")
+    floatStroke.Color = Color3.fromRGB(255, 170, 0)
+    floatStroke.Thickness = 2
+    floatStroke.Parent = floatBtn
+
+    -- Toggle UI visibility helper
+    local function toggleUI()
+        main.Visible = not main.Visible
+        if main.Visible then
+            floatBtn.BackgroundColor3 = Color3.fromRGB(255, 170, 0)
+            floatBtn.TextColor3 = Color3.fromRGB(16, 18, 26)
+        else
+            floatBtn.BackgroundColor3 = Color3.fromRGB(20, 22, 32)
+            floatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        end
+    end
+
+    floatBtn.MouseButton1Click:Connect(toggleUI)
+
+    -- Floating Button Draggable
+    local floatDragging, floatDragInput, floatStart, floatPos
+    floatBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            floatDragging = true
+            floatStart = input.Position
+            floatPos = floatBtn.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then floatDragging = false end
+            end)
+        end
+    end)
+
+    floatBtn.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            floatDragInput = input
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input == floatDragInput and floatDragging then
+            local delta = input.Position - floatStart
+            floatBtn.Position = UDim2.new(floatPos.X.Scale, floatPos.X.Offset + delta.X, floatPos.Y.Scale, floatPos.Y.Offset + delta.Y)
+        end
+    end)
+
+    -- Keyboard shortcut (LeftControl or RightControl to toggle UI)
+    local keyConn = UserInputService.InputBegan:Connect(function(input, gpe)
+        if not gpe and (input.KeyCode == Enum.KeyCode.LeftControl or input.KeyCode == Enum.KeyCode.RightControl) then
+            toggleUI()
+        end
+    end)
+    Runtime.trackConnection(keyConn)
+
+    -- ── Header ───────────────────────────────────────────────────────
     local header = Instance.new("Frame")
     header.Size = UDim2.new(1, 0, 0, 48)
     header.BackgroundColor3 = Color3.fromRGB(22, 25, 36)
@@ -455,6 +579,7 @@ local function buildUI()
     badgeCorner.CornerRadius = UDim.new(0, 6)
     badgeCorner.Parent = badge
 
+    -- Minimize/Close Button
     local closeBtn = Instance.new("TextButton")
     closeBtn.Position = UDim2.new(1, -38, 0.5, -14)
     closeBtn.Size = UDim2.new(0, 28, 0, 28)
@@ -470,10 +595,12 @@ local function buildUI()
     closeCorner.Parent = closeBtn
 
     closeBtn.MouseButton1Click:Connect(function()
-        screenGui.Enabled = not screenGui.Enabled
+        main.Visible = false
+        floatBtn.BackgroundColor3 = Color3.fromRGB(20, 22, 32)
+        floatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     end)
 
-    -- Draggable
+    -- Draggable MainFrame
     local dragging, dragInput, dragStart, startPos
     header.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -630,17 +757,17 @@ local function buildUI()
 
     createToggle(farmPage, "Auto Train (Activate Dumbell)", Config.AutoTrain, function(s)
         Config.AutoTrain = s
-        if s then Farm.startAutoTrain() end
+        if s then Farm.startAutoTrain() else Farm.stopAutoTrain() end
     end)
 
     createToggle(farmPage, "Auto Sell (Sell All Friends)", Config.AutoSell, function(s)
         Config.AutoSell = s
-        if s then Farm.startAutoSell() end
+        if s then Farm.startAutoSell() else Farm.stopAutoSell() end
     end)
 
     createToggle(farmPage, "Auto Rebirth", Config.AutoRebirth, function(s)
         Config.AutoRebirth = s
-        if s then Farm.startAutoRebirth() end
+        if s then Farm.startAutoRebirth() else Farm.stopAutoRebirth() end
     end)
 
     createToggle(farmPage, "Auto Pull Egg (Target Tier)", Config.AutoPullEgg, function(s)
@@ -667,7 +794,7 @@ local function buildUI()
     local sectionLabel = Instance.new("TextLabel")
     sectionLabel.Size = UDim2.new(1, -8, 0, 24)
     sectionLabel.BackgroundTransparency = 1
-    sectionLabel.Text = "⚡ Teleport to Egg Tiers:"
+    sectionLabel.Text = "⚡ Teleport to Egg Tiers (Boss-Safe):"
     sectionLabel.TextColor3 = Color3.fromRGB(255, 170, 0)
     sectionLabel.Font = Enum.Font.GothamBold
     sectionLabel.TextSize = 13
@@ -709,26 +836,81 @@ local function buildUI()
         Farm.teleportToShop("ShopCarry")
     end)
 
+    createButton(miscPage, "❌ Unload Script (Close All)", Color3.fromRGB(192, 57, 43), function()
+        Runtime.Unload()
+    end)
+
     screenGui.Parent = parent
+    toggleGui.Parent = parent
+    table.insert(Runtime.Instances, screenGui)
+    table.insert(Runtime.Instances, toggleGui)
 end
 
 -- ── 6. Anti-AFK & Lifecycle ─────────────────────────────────────────
-LocalPlayer.Idled:Connect(function()
+local afkConn = LocalPlayer.Idled:Connect(function()
     local VirtualUser = game:GetService("VirtualUser")
     VirtualUser:CaptureController()
     VirtualUser:ClickButton2(Vector2.new())
     Remotes.fire("AFK Idle Reset Request")
 end)
+Runtime.trackConnection(afkConn)
 
 -- Auto Claim on Startup
 task.spawn(function()
     task.wait(2)
-    Remotes.fire("Claim Daily Reward")
-    Remotes.fire("Claim Group Reward")
+    if Runtime.Running then
+        Remotes.fire("Claim Daily Reward")
+        Remotes.fire("Claim Group Reward")
+    end
 end)
 
 -- Initialize ESP & UI
 ESP.init()
 buildUI()
 
-print("[LuxuryXHUB] ✓ Pull An Egg Suite Loaded Successfully!")
+-- Register Unload handler
+function Runtime.Unload()
+    Runtime.Running = false
+    Config.AutoTrain = false
+    Config.AutoSell = false
+    Config.AutoRebirth = false
+    Config.AutoPullEgg = false
+
+    -- Stop all threads
+    for _, th in pairs(Farm.Threads) do
+        pcall(task.cancel, th)
+    end
+    Farm.Threads = {}
+
+    -- Disconnect all connections
+    for _, conn in ipairs(Runtime.Connections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    Runtime.Connections = {}
+
+    -- Clean movement / float / noclip
+    Farm.setFloat(false)
+    Farm.setNoclip(false)
+
+    -- Clean ESP
+    ESP.destroy()
+
+    -- Destroy UI instances
+    for _, inst in ipairs(Runtime.Instances) do
+        pcall(function() inst:Destroy() end)
+    end
+    Runtime.Instances = {}
+
+    local parent = getGuiParent()
+    local old1 = parent:FindFirstChild("LuxuryXHUB_PullAnEgg")
+    if old1 then old1:Destroy() end
+    local old2 = parent:FindFirstChild("LuxuryXHUB_FloatingBtn")
+    if old2 then old2:Destroy() end
+
+    getgenv().LuxuryXHUB_PullAnEgg = nil
+    print("[LuxuryXHUB] ♻️ Previous script instance cleared successfully!")
+end
+
+getgenv().LuxuryXHUB_PullAnEgg = Runtime
+
+print("[LuxuryXHUB] ✓ Pull An Egg Suite Loaded Successfully! Press [LeftControl] or click 🐾 to toggle menu.")

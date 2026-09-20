@@ -41,6 +41,27 @@ function Bootstrap.start(modules)
         end
     end)
 
+    -- Clear any previous instance
+    if getgenv().LuxuryXHUB_PullAnEgg and typeof(getgenv().LuxuryXHUB_PullAnEgg.Unload) == "function" then
+        pcall(function() getgenv().LuxuryXHUB_PullAnEgg.Unload() end)
+    end
+
+    local Runtime = {
+        Unload = function()
+            if Farm then
+                Farm.stopAutoTrain()
+                Farm.stopAutoSell()
+                Farm.stopAutoRebirth()
+                Farm.stopAutoPullEgg()
+            end
+            if ESP and ESP.destroy then ESP.destroy() end
+            if UI and UI.destroy then UI.destroy() end
+            getgenv().LuxuryXHUB_PullAnEgg = nil
+            print("[LuxuryXHUB] ♻️ Cleared previous Pull An Egg instance.")
+        end
+    }
+    getgenv().LuxuryXHUB_PullAnEgg = Runtime
+
     print("[LuxuryXHUB] ✓ Pull An Egg Automation Suite Loaded Successfully!")
 end
 
