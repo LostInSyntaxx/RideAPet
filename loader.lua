@@ -321,8 +321,13 @@ local function main()
     end
 
     -- ── Multi-Game Routing ─────────────────────────────────────────
-    if game.PlaceId == 70640255604878 then
-        Log.info("🎮 Detected Game: Pull An Egg (PlaceId: " .. tostring(game.PlaceId) .. ")")
+    -- Debug: always print current IDs so routing is transparent
+    Log.info("🔍 PlaceId = " .. tostring(game.PlaceId) .. "  |  GameId = " .. tostring(game.GameId))
+
+    -- Pull An Egg: match by PlaceId OR GameId (Universe) as fallback for alt-places
+    local isPullAnEgg = (game.PlaceId == 70640255604878) or (game.GameId == 10649255304)
+    if isPullAnEgg then
+        Log.info("🎮 Routing → Pull An Egg (PlaceId: " .. tostring(game.PlaceId) .. ")")
         local pullEggUrl = "https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/main/scripts/pull_an_egg.lua"
         local ok, scriptContent = pcall(function()
             return game:HttpGet(pullEggUrl)
@@ -339,6 +344,8 @@ local function main()
         else
             Log.err("Failed to fetch Pull An Egg suite from GitHub")
         end
+    else
+        Log.info("🐾 Routing → Ride A Pet — loading modular system…")
     end
 
     -- ── Cache init ────────────────────────────────────────────────
