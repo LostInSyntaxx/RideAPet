@@ -13,6 +13,10 @@
 ╰────────────────────────────────────────────────────────────────────────────────────╯
 ]]
 
+-- ── Configuration & Constants ───────────────────────────────────────
+-- ⚠️ เปลี่ยน URL ด้านล่างนี้ให้ตรงกับลิงก์ Raw Lua ของคุณเองสำหรับระบบ Rejoin/Server Hop
+local SCRIPT_RAW_URL = "https://raw.githubusercontent.com/YourUsername/YourRepo/main/pull_an_egg_2.lua"
+
 -- ── 0. Cleanup Previous Instance (Prevent duplicate execution) ──────
 if getgenv().LuxuryXHUB_PullAnEgg and typeof(getgenv().LuxuryXHUB_PullAnEgg.Unload) == "function" then
     pcall(function()
@@ -68,7 +72,6 @@ local Config = {
     SpeedBoost      = false,
     WalkSpeed       = 100,
     JumpPower       = 80,
-
 
     TIERS = {
         "Celestial",
@@ -308,7 +311,7 @@ function Farm.startAutoBuyDumbell()
             for i = 1, 30 do
                 if not Config.AutoBuyDumbell then break end
                 Remotes.buyDumbell(i)
-                task.wait(0.05)
+                task.wait(0.08) -- ปรับหน่วงเล็กน้อยป้องกัน Lag
             end
             task.wait(1)
         end
@@ -360,7 +363,11 @@ function Farm.startAutoPullEgg()
                         task.wait(0.1)
                     end
                 end
-                Remotes.invoke("Strange: Claim Egg", targetTier)
+                
+                -- ครอบ pcall เพื่อป้องกันไม่ให้ Thread ค้าง
+                pcall(function()
+                    Remotes.invoke("Strange: Claim Egg", targetTier)
+                end)
                 Remotes.fire("Activate Dumbell")
             end
             task.wait(0.1)
@@ -698,7 +705,9 @@ local function buildUI()
     local dragging, dragInput, dragStart, startPos
     titleBar.InputBegan:Connect(function(i)
         if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-            dragging=true dragging=true dragStart=i.Position startPos=shell.Position
+            dragging = true
+            dragStart = i.Position
+            startPos = shell.Position
             i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then dragging=false end end)
         end
     end)
@@ -758,7 +767,6 @@ local function buildUI()
     --  COMPONENT BUILDERS
     -- ─────────────────────────────────────────────────────────────
 
-    -- Outer card (BG2) + inner card (BG3) nested
     local function outerCard(parent, h)
         local o = Instance.new("Frame")
         o.Size = UDim2.new(1, 0, 0, h or 66)
@@ -783,7 +791,6 @@ local function buildUI()
         return i
     end
 
-    -- Toggle with pill slider + indicator dot
     local function createToggle(page, labelText, defaultState, onToggle)
         local o = outerCard(page, 62)
         local inn = innerCard(o)
@@ -845,7 +852,6 @@ local function buildUI()
         return o
     end
 
-    -- Action button with left accent bar + hover
     local function createButton(page, labelText, accentCol, onClick)
         local o = outerCard(page, 52)
         local inn = Instance.new("TextButton")
@@ -903,7 +909,6 @@ local function buildUI()
         return o
     end
 
-    -- Section divider label
     local function sectionLabel(page, text)
         local row = Instance.new("Frame")
         row.Size = UDim2.new(1, 0, 0, 26)
@@ -1082,6 +1087,7 @@ local function buildUI()
     table.insert(Runtime.Instances, screenGui)
     table.insert(Runtime.Instances, toggleGui)
 end
+
 -- ── 6. Universal Utilities Module ───────────────────────────────────
 local Universal = {}
 do
@@ -1129,21 +1135,18 @@ do
     end
 
     function Universal.setSpeed(enable)
-        -- Disconnect previous respawn watcher
         if _speedConn then
             pcall(function() _speedConn:Disconnect() end)
             _speedConn = nil
         end
         if enable then
             applySpeed()
-            -- Re-apply every time character respawns
             _speedConn = LocalPlayer.CharacterAdded:Connect(function(char)
-                task.wait(0.5)  -- wait for Humanoid to load
+                task.wait(0.5)
                 applySpeed()
             end)
             Runtime.trackConnection(_speedConn)
         else
-            -- Restore default Roblox speed
             pcall(function()
                 local char = LocalPlayer.Character
                 if not char then return end
@@ -1177,7 +1180,6 @@ do
                 end
             end
         end)
-        -- Lighting quality fallback (works in most executors)
         pcall(function()
             local lighting = game:GetService("Lighting")
             if enable then
@@ -1194,18 +1196,17 @@ do
     function Universal.rejoin()
         local placeId = game.PlaceId
         local jobId   = game.JobId
-        -- Queue loader to re-inject after rejoin
         pcall(function()
             local qot = (syn and syn.queue_on_teleport)
                 or (typeof(queue_on_teleport) == "function" and queue_on_teleport)
                 or (Fluxus and Fluxus.queue_on_teleport)
             if qot then
-                qot([[
+                qot(string.format([[
                     task.wait(3)
                     pcall(function()
-                        loadstring(game:HttpGet("https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/main/loader.lua"))()
+                        loadstring(game:HttpGet("%s"))()
                     end)
-                ]])
+                ]], SCRIPT_RAW_URL))
             end
         end)
         pcall(function()
@@ -1216,21 +1217,19 @@ do
     -- Server Hop ---------------------------------------------------------
     function Universal.serverHop()
         local placeId = game.PlaceId
-        -- Queue loader after hop
         pcall(function()
             local qot = (syn and syn.queue_on_teleport)
                 or (typeof(queue_on_teleport) == "function" and queue_on_teleport)
                 or (Fluxus and Fluxus.queue_on_teleport)
             if qot then
-                qot([[
+                qot(string.format([[
                     task.wait(3)
                     pcall(function()
-                        loadstring(game:HttpGet("https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/main/loader.lua"))()
+                        loadstring(game:HttpGet("%s"))()
                     end)
-                ]])
+                ]], SCRIPT_RAW_URL))
             end
         end)
-        -- Find a different server via the game's server list
         task.spawn(function()
             local ok, servers = pcall(function()
                 local url = ("https://games.roblox.com/v1/games/%d/servers/Public?limit=100"):format(placeId)
@@ -1249,7 +1248,6 @@ do
                     end
                 end
             end
-            -- Fallback: teleport to a fresh server
             pcall(function()
                 TeleportService:Teleport(placeId, LocalPlayer)
             end)
@@ -1258,10 +1256,8 @@ do
 end
 
 -- ── 7. Startup ──────────────────────────────────────────────────────
--- Enable Anti-AFK immediately (it's on by default)
 Universal.setAntiAFK(Config.AntiAFK)
 
--- Auto Claim on Startup
 task.spawn(function()
     task.wait(2)
     if Runtime.Running then
@@ -1270,11 +1266,9 @@ task.spawn(function()
     end
 end)
 
--- Initialize ESP & UI
 ESP.init()
 buildUI()
 
--- Register Unload handler
 function Runtime.Unload()
     Runtime.Running = false
     Config.AutoTrain = false
@@ -1284,33 +1278,27 @@ function Runtime.Unload()
     Config.AutoUpgradeCarry = false
     Config.AutoPullEgg = false
 
-    -- Universal cleanup
     Universal.stopAntiAFK()
     Universal.stopSpeed()
     if Config.LowGraphics then
         Universal.setLowGraphics(false)
     end
 
-    -- Stop all threads
     for _, th in pairs(Farm.Threads) do
         pcall(task.cancel, th)
     end
     Farm.Threads = {}
 
-    -- Disconnect all connections
     for _, conn in ipairs(Runtime.Connections) do
         pcall(function() conn:Disconnect() end)
     end
     Runtime.Connections = {}
 
-    -- Clean movement / float / noclip
     Farm.setFloat(false)
     Farm.setNoclip(false)
 
-    -- Clean ESP
     ESP.destroy()
 
-    -- Destroy UI instances
     for _, inst in ipairs(Runtime.Instances) do
         pcall(function() inst:Destroy() end)
     end
