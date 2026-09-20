@@ -283,77 +283,6 @@ function UI.mount()
     AlertLayout.Parent = AlertStack
 
     -- ══════════════════════════════════════════════════════════════
-    -- DEVICE SELECTION
-    -- ══════════════════════════════════════════════════════════════
-    local DeviceFrame = Instance.new("Frame")
-    DeviceFrame.Name = "DeviceSelectionFrame"
-    DeviceFrame.Size = UDim2.new(0, 340, 0, 220)
-    DeviceFrame.Position = UDim2.new(0.5, -170, 0.5, -110)
-    DeviceFrame.BackgroundColor3 = AppConfig.BgColor
-    DeviceFrame.BackgroundTransparency = AppConfig.BgTransparency
-    DeviceFrame.BorderSizePixel = 0
-    DeviceFrame.Active = true
-    DeviceFrame.Parent = ScreenGui
-    UI.applyCard(DeviceFrame, AppConfig.Radius2XL, AppConfig.BgColor, AppConfig.CardBorder)
-
-    local DeviceInner = Instance.new("Frame")
-    DeviceInner.Size = UDim2.new(1, -16, 1, -16)
-    DeviceInner.Position = UDim2.new(0, 8, 0, 8)
-    DeviceInner.Parent = DeviceFrame
-    UI.applyCard(DeviceInner, AppConfig.RadiusXL, AppConfig.OuterCardBg, AppConfig.BorderInner)
-
-    -- Logo in device selection
-    local DeviceLogo = Instance.new("ImageLabel")
-    DeviceLogo.Size = UDim2.new(0, 64, 0, 64)
-    DeviceLogo.Position = UDim2.new(0.5, -32, 0, 14)
-    DeviceLogo.BackgroundTransparency = 1
-    DeviceLogo.Image = LOGO_URL
-    DeviceLogo.ScaleType = Enum.ScaleType.Fit
-    DeviceLogo.Parent = DeviceInner
-
-    local DeviceTitle = Instance.new("TextLabel")
-    DeviceTitle.Size = UDim2.new(1, 0, 0, 24)
-    DeviceTitle.Position = UDim2.new(0, 0, 0, 84)
-    DeviceTitle.BackgroundTransparency = 1
-    DeviceTitle.Text = "Select Device"
-    DeviceTitle.TextColor3 = AppConfig.TextPrimary
-    DeviceTitle.TextSize = AppConfig.TextTitle
-    DeviceTitle.Font = Enum.Font.GothamBold
-    DeviceTitle.Parent = DeviceInner
-
-    local DeviceSub = Instance.new("TextLabel")
-    DeviceSub.Size = UDim2.new(1, 0, 0, 16)
-    DeviceSub.Position = UDim2.new(0, 0, 0, 108)
-    DeviceSub.BackgroundTransparency = 1
-    DeviceSub.Text = "LuxuryXHUB v" .. AppConfig.Version
-    DeviceSub.TextColor3 = AppConfig.TextMuted
-    DeviceSub.TextSize = AppConfig.TextCaption
-    DeviceSub.Font = Enum.Font.GothamMedium
-    DeviceSub.Parent = DeviceInner
-
-    local PCBtn = Instance.new("TextButton")
-    PCBtn.Size = UDim2.new(0.5, -14, 0, 48)
-    PCBtn.Position = UDim2.new(0, 10, 0, 138)
-    PCBtn.BackgroundColor3 = AppConfig.NestedCardBg
-    PCBtn.Text = "💻  PC Mode"
-    PCBtn.TextColor3 = AppConfig.TextPrimary
-    PCBtn.TextSize = AppConfig.TextHeader
-    PCBtn.Font = Enum.Font.GothamBold
-    PCBtn.Parent = DeviceInner
-    UI.styleButton(PCBtn, AppConfig.RadiusLG, AppConfig.NestedCardBg)
-
-    local MobileBtn = Instance.new("TextButton")
-    MobileBtn.Size = UDim2.new(0.5, -14, 0, 48)
-    MobileBtn.Position = UDim2.new(0.5, 4, 0, 138)
-    MobileBtn.BackgroundColor3 = AppConfig.NestedCardBg
-    MobileBtn.Text = "📱  Mobile"
-    MobileBtn.TextColor3 = AppConfig.TextPrimary
-    MobileBtn.TextSize = AppConfig.TextHeader
-    MobileBtn.Font = Enum.Font.GothamBold
-    MobileBtn.Parent = DeviceInner
-    UI.styleButton(MobileBtn, AppConfig.RadiusLG, AppConfig.NestedCardBg)
-
-    -- ══════════════════════════════════════════════════════════════
     -- MAIN WINDOW
     -- ══════════════════════════════════════════════════════════════
     local MainFrame = Instance.new("Frame")
@@ -364,7 +293,7 @@ function UI.mount()
     MainFrame.BackgroundTransparency = AppConfig.BgTransparency
     MainFrame.BorderSizePixel = 0
     MainFrame.Active = true
-    MainFrame.Visible = false
+    MainFrame.Visible = true
     MainFrame.ClipsDescendants = true
     MainFrame.Parent = ScreenGui
     UI.applyCard(MainFrame, AppConfig.Radius2XL, AppConfig.BgColor, AppConfig.CardBorder)
@@ -2388,7 +2317,6 @@ function UI.mount()
         local w, h = currentSize()
         MainFrame.Size = UDim2.new(0, w, 0, h)
         MainFrame.Position = UDim2.new(0.5, -w / 2, 0.5, -h / 2)
-        if DeviceFrame and DeviceFrame.Parent then DeviceFrame:Destroy() end
         MainFrame.Visible = true
         Sidebar.Visible = not StateStore.isMinimized
         ContentArea.Visible = not StateStore.isMinimized
@@ -2397,16 +2325,13 @@ function UI.mount()
         updateLiveEggsSummary()
     end
 
-    PCBtn.MouseButton1Click:Connect(function() applyMode("PC") end)
-    MobileBtn.MouseButton1Click:Connect(function() applyMode("Mobile") end)
     SetPCBtn.MouseButton1Click:Connect(function() applyMode("PC") end)
     SetMobileBtn.MouseButton1Click:Connect(function() applyMode("Mobile") end)
     FootPC.MouseButton1Click:Connect(function() applyMode("PC") end)
     FootMobile.MouseButton1Click:Connect(function() applyMode("Mobile") end)
 
-    if S.UserInputService.TouchEnabled and not S.UserInputService.KeyboardEnabled then
-        task.defer(function() applyMode("Mobile") end)
-    end
+    local initialMode = (S.UserInputService.TouchEnabled and not S.UserInputService.KeyboardEnabled) and "Mobile" or "PC"
+    applyMode(initialMode)
 
     local timeTick = 0
     StateStore.track(S.RunService.Heartbeat:Connect(function(dt)

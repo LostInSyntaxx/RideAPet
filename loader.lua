@@ -320,6 +320,27 @@ local function main()
         return
     end
 
+    -- ── Multi-Game Routing ─────────────────────────────────────────
+    if game.PlaceId == 70640255604878 or game.GameId == 10649255304 then
+        Log.info("🎮 Detected Game: Pull An Egg (PlaceId: " .. tostring(game.PlaceId) .. ")")
+        local pullEggUrl = "https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/main/scripts/pull_an_egg.lua"
+        local ok, scriptContent = pcall(function()
+            return game:HttpGet(pullEggUrl)
+        end)
+        if ok and scriptContent and #scriptContent > 0 then
+            local fn, loadErr = loadstring(scriptContent)
+            if fn then
+                fn()
+                Log.ok("Pull An Egg Suite initialized!")
+                return
+            else
+                Log.err("Failed to compile Pull An Egg suite: " .. tostring(loadErr))
+            end
+        else
+            Log.err("Failed to fetch Pull An Egg suite from GitHub")
+        end
+    end
+
     -- ── Cache init ────────────────────────────────────────────────
     Cache.init()
 
