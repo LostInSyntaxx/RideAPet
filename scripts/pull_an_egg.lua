@@ -1,22 +1,4 @@
---[[
-╭────────────────────────────────────────────────────────────────────────────────────╮
-│  ##       ##     ## ##     ## ##     ## ########  ##    ##                         │
-│  ##       ##     ##  ##   ##  ##     ## ##     ##  ##  ##                          │
-│  ##       ##     ##   ## ##   ##     ## ##     ##   ####                           │
-│  ##       ##     ##    ###    ##     ## ########     ##                            │
-│  ##       ##     ##   ## ##   ##     ## ##   ##      ##                            │
-│  ##       ##     ##  ##   ##  ##     ## ##    ##     ##                            │
-│  ########  #######  ##     ##  #######  ##     ##    ##                            │
-│                                                                                    │
-│                  LuxuryXHUB — Pull An Egg (Standalone Suite)                       │
-│     Auto Train · Auto Sell · Auto Rebirth · Egg ESP · Teleport · Anti-AFK         │
-╰────────────────────────────────────────────────────────────────────────────────────╯
-]]
-
--- ── Configuration & Constants ───────────────────────────────────────
--- ⚠️ เปลี่ยน URL ด้านล่างนี้ให้ตรงกับลิงก์ Raw Lua ของคุณเองสำหรับระบบ Rejoin/Server Hop
 local SCRIPT_RAW_URL = "https://raw.githubusercontent.com/YourUsername/YourRepo/main/pull_an_egg_2.lua"
-
 -- ── 0. Cleanup Previous Instance (Prevent duplicate execution) ──────
 if getgenv().LuxuryXHUB_PullAnEgg and typeof(getgenv().LuxuryXHUB_PullAnEgg.Unload) == "function" then
     pcall(function()
