@@ -333,6 +333,10 @@ local function main()
             return game:HttpGet(pullEggUrl)
         end)
         if ok and scriptContent and #scriptContent > 0 then
+            -- Strip UTF-8 BOM (U+FEFF = \xEF\xBB\xBF) if present — causes "Expected identifier" error in Lua
+            if scriptContent:sub(1, 3) == "\xEF\xBB\xBF" then
+                scriptContent = scriptContent:sub(4)
+            end
             local fn, loadErr = loadstring(scriptContent)
             if fn then
                 fn()
