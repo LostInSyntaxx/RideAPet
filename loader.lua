@@ -1,25 +1,7 @@
 --[[
 ╭────────────────────────────────────────────────────────────────────────────────────╮
-│                                                                                    │
-│  ##       ##     ## ##     ## ##     ## ########  ##    ##                         │
-│  ##       ##     ##  ##   ##  ##     ## ##     ##  ##  ##                          │
-│  ##       ##     ##   ## ##   ##     ## ##     ##   ####                           │
-│  ##       ##     ##    ###    ##     ## ########     ##                            │
-│  ##       ##     ##   ## ##   ##     ## ##   ##      ##                            │
-│  ##       ##     ##  ##   ##  ##     ## ##    ##     ##                            │
-│  ########  #######  ##     ##  #######  ##     ##    ##                            │
-│                                                                                    │
-│  ##     ## ##     ## ##     ## ########                                            │
-│   ##   ##  ##     ## ##     ## ##     ##                                           │
-│    ## ##   ##     ## ##     ## ##     ##                                           │
-│     ###    ######### ##     ## ########                                            │
-│    ## ##   ##     ## ##     ## ##     ##                                           │
-│   ##   ##  ##     ## ##     ## ##     ##                                           │
-│  ##     ## ##     ##  #######  ########                                            │
-│                                                                                    │
 │                        Modular Script Loader                                       │
 │              Auto-cache  ·  Auto-refresh  ·  Health check                         │
-│                                                                                    │
 ╰────────────────────────────────────────────────────────────────────────────────────╯
 ]]
 
@@ -30,38 +12,43 @@
 local CONFIG = {
     BASE_URL    = "https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/main/src/",
     VERSION_URL = "https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/main/version.txt",
-    CACHE_DIR   = "LuxuryXHUB_cache",
+    CACHE_DIR   = "LuxuryXHUB",
 
     USE_DISK_CACHE = true,
     FORCE_REFRESH  = false,
     MAX_RETRIES    = 3,
 
-    -- ── Modules (load order matters) ──────────────────────────────
     MODULES = {
-        "LoadingScreen",
-        "Config",
-        "Services",
-        "State",
-        "Utils",
-        "Webhook",
-        "Stability",
-        "Interaction",
-        "Movement",
-        "Plot",
-        "ESP",
-        "Farm",
-        "Rebirth",
-        "UI",
-        "Bootstrap",
+        "LoadingScreen","Config","Services","State","Utils","Webhook",
+        "Stability","Interaction","Movement","Plot","ESP","Farm","Rebirth","UI","Bootstrap",
     },
 
-    -- ── Required for a healthy run ─────────────────────────────────
     REQUIRED = {
-        "Config", "Services", "StateStore", "Utils", "Webhook",
-        "ESP", "Farm", "Rebirth", "Movement", "Plot", "UI",
+        "Config","Services","StateStore","Utils","Webhook",
+        "ESP","Farm","Rebirth","Movement","Plot","UI",
     },
 
     NAMESPACE = "EggsESP",
+
+    -- ── Multi-Game Routes ─────────────────────────────────────────
+    -- Each entry: { name, url, placeIds={}, gameIds={} }
+    -- placeIds → match game.PlaceId (exact place, highest priority)
+    -- gameIds  → match game.GameId  (whole universe, fallback)
+    -- First match wins and exits early. Add more games here easily.
+    GAME_ROUTES = {
+        {
+            name     = "Pull An Egg",
+            url      = "https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/main/scripts/pull_an_egg.lua",
+            placeIds = { 70640255604878 },
+            gameIds  = { 10649255304 },
+        },
+        -- {
+        --     name     = "My Other Game",
+        --     url      = "https://raw.githubusercontent.com/.../scripts/other_game.lua",
+        --     placeIds = { 12345678 },
+        --     gameIds  = {},
+        -- },
+    },
 }
 
 -- ┌─────────────────────────────────────────────────────────────────┐
@@ -89,9 +76,7 @@ local DISK_CACHE_OK = CONFIG.USE_DISK_CACHE
 -- └─────────────────────────────────────────────────────────────────┘
 
 local LOG_PREFIX = "[LuxuryXHUB]"
-
 local Log = {}
-
 function Log.info (msg) print(LOG_PREFIX .. "  " .. tostring(msg)) end
 function Log.ok   (msg) print(LOG_PREFIX .. " ✓  " .. tostring(msg)) end
 function Log.warn (msg) warn (LOG_PREFIX .. " ⚠  " .. tostring(msg)) end
@@ -114,8 +99,16 @@ local function httpGet(url)
         lastErr = result
         if attempt < CONFIG.MAX_RETRIES then task.wait(0.4 * attempt) end
     end
-    Log.err("HTTP failed after " .. CONFIG.MAX_RETRIES .. " attempts → " .. url)
+    Log.err("HTTP failed after " .. CONFIG.MAX_RETRIES .. " attempts -> " .. url)
     return nil
+end
+
+-- Strip UTF-8 BOM (\xEF\xBB\xBF / U+FEFF) — Lua cannot parse it
+local function stripBOM(src)
+    if src and src:sub(1, 3) == "\239\187\191" then
+        return src:sub(4)
+    end
+    return src
 end
 
 -- ┌─────────────────────────────────────────────────────────────────┐
@@ -176,7 +169,6 @@ end
 
 local function checkVersion()
     if not CONFIG.VERSION_URL then return nil, false end
-
     local remoteVer = httpGet(CONFIG.VERSION_URL)
     if not remoteVer then return nil, false end
     remoteVer = remoteVer:match("^%s*(.-)%s*$")
@@ -199,7 +191,6 @@ local function checkVersion()
         ))
         return remoteVer, true
     end
-
     return remoteVer, false
 end
 
@@ -222,16 +213,13 @@ local function fetchModule(name, forceRefresh)
         local cached = Cache.read(name)
         if cached then return cached, "cache" end
     end
-
     local url = CONFIG.BASE_URL .. name .. ".lua"
     local src = httpGet(url)
-
     if not src then
         local cached = Cache.read(name)
         if cached then return cached, "stale" end
         return nil, "failed"
     end
-
     Cache.write(name, src)
     return src, "http"
 end
@@ -245,19 +233,16 @@ local function compileAndRun(name, src)
         Log.err("Source too small to be valid: " .. name)
         return false
     end
-
     local chunk, compileErr = loadstring(src, "@LuxuryXHUB/" .. name)
     if not chunk then
         Log.err("Compile error in " .. name .. ": " .. tostring(compileErr))
         return false
     end
-
     local ok, runtimeErr = pcall(chunk)
     if not ok then
         Log.err("Runtime error in " .. name .. ": " .. tostring(runtimeErr))
         return false
     end
-
     return true
 end
 
@@ -268,17 +253,60 @@ end
 local function healthCheck(NS)
     local missing = {}
     for _, key in ipairs(CONFIG.REQUIRED) do
-        if not NS[key] then
-            table.insert(missing, key)
-        end
+        if not NS[key] then table.insert(missing, key) end
     end
-
     if #missing > 0 then
         Log.err("Health check FAILED — missing: " .. table.concat(missing, ", "))
         return false
     end
-
     Log.ok("Health check passed — all required modules present")
+    return true
+end
+
+-- ┌─────────────────────────────────────────────────────────────────┐
+-- │  MULTI-GAME ROUTER                                              │
+-- └─────────────────────────────────────────────────────────────────┘
+
+-- Check if current game matches a route.
+-- placeIds checked first (most specific), then gameIds (universe fallback).
+local function matchRoute(route)
+    local pid = game.PlaceId
+    local gid = game.GameId
+    for _, id in ipairs(route.placeIds or {}) do
+        if pid == id then return true, "PlaceId" end
+    end
+    for _, id in ipairs(route.gameIds or {}) do
+        if gid == id then return true, "GameId" end
+    end
+    return false, nil
+end
+
+local function runRoute(route, matchedBy)
+    Log.info("🎮 Routing -> " .. route.name
+        .. " (matched by " .. matchedBy
+        .. " | PlaceId: " .. tostring(game.PlaceId) .. ")")
+
+    local src = httpGet(route.url)
+    if not src then
+        Log.err("Failed to fetch script for: " .. route.name)
+        return false
+    end
+
+    src = stripBOM(src)
+
+    local fn, loadErr = loadstring(src, "@" .. route.name)
+    if not fn then
+        Log.err("Compile error in " .. route.name .. ": " .. tostring(loadErr))
+        return false
+    end
+
+    local ok, runtimeErr = pcall(fn)
+    if not ok then
+        Log.err("Runtime error in " .. route.name .. ": " .. tostring(runtimeErr))
+        return false
+    end
+
+    Log.ok(route.name .. " initialized!")
     return true
 end
 
@@ -321,41 +349,23 @@ local function main()
     end
 
     -- ── Multi-Game Routing ─────────────────────────────────────────
-    -- Debug: always print current IDs so routing is transparent
     Log.info("🔍 PlaceId = " .. tostring(game.PlaceId) .. "  |  GameId = " .. tostring(game.GameId))
 
-    -- Pull An Egg: match by PlaceId OR GameId (Universe) as fallback for alt-places
-    local isPullAnEgg = (game.PlaceId == 70640255604878) or (game.GameId == 10649255304)
-    if isPullAnEgg then
-        Log.info("🎮 Routing → Pull An Egg (PlaceId: " .. tostring(game.PlaceId) .. ")")
-        local pullEggUrl = "https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/main/scripts/pull_an_egg.lua"
-        local ok, scriptContent = pcall(function()
-            return game:HttpGet(pullEggUrl)
-        end)
-        if ok and scriptContent and #scriptContent > 0 then
-            -- Strip UTF-8 BOM (U+FEFF = \xEF\xBB\xBF) if present — causes "Expected identifier" error in Lua
-            if scriptContent:sub(1, 3) == "\xEF\xBB\xBF" then
-                scriptContent = scriptContent:sub(4)
-            end
-            local fn, loadErr = loadstring(scriptContent)
-            if fn then
-                fn()
-                Log.ok("Pull An Egg Suite initialized!")
-                return
-            else
-                Log.err("Failed to compile Pull An Egg suite: " .. tostring(loadErr))
-            end
-        else
-            Log.err("Failed to fetch Pull An Egg suite from GitHub")
+    for _, route in ipairs(CONFIG.GAME_ROUTES) do
+        local matched, matchedBy = matchRoute(route)
+        if matched then
+            local success = runRoute(route, matchedBy)
+            if success then return end -- success → exit loader
+            Log.warn("Route failed for " .. route.name .. " — falling back to modular system")
+            break
         end
-    else
-        Log.info("🐾 Routing → Ride A Pet — loading modular system…")
     end
 
-    -- ── Cache init ────────────────────────────────────────────────
+    -- ── Ride A Pet modular system ──────────────────────────────────
+    Log.info("🐾 Routing -> Ride A Pet — loading modular system…")
+
     Cache.init()
 
-    -- ── Version check ─────────────────────────────────────────────
     local newVer, needsRefresh = checkVersion()
     if needsRefresh then
         Log.info("New version detected — clearing cache and pulling fresh modules")
@@ -364,16 +374,14 @@ local function main()
         Log.info("Version up-to-date — using cache where available")
     end
 
-    -- ── Namespace ─────────────────────────────────────────────────
     getgenv()[CONFIG.NAMESPACE] = getgenv()[CONFIG.NAMESPACE] or {}
     local NS = getgenv()[CONFIG.NAMESPACE]
     getgenv().EggsESP = NS
     getgenv().LuxuryXHUB = NS
     NS.Modules = NS.Modules or {}
 
-    -- ── Module loading ────────────────────────────────────────────
-    local total  = #CONFIG.MODULES
-    local stats  = { cache = 0, http = 0, stale = 0, failed = 0 }
+    local total      = #CONFIG.MODULES
+    local stats      = { cache = 0, http = 0, stale = 0, failed = 0 }
     local SOURCE_ICON = { cache = "💾", http = "🌐", stale = "♻️", failed = "✗" }
 
     print("")
@@ -382,8 +390,8 @@ local function main()
 
     for i, name in ipairs(CONFIG.MODULES) do
         local src, source = fetchModule(name, needsRefresh)
-        local progress    = ("[%02d/%02d]"):format(i, total)
-        local icon        = SOURCE_ICON[source] or "?"
+        local progress   = ("[%02d/%02d]"):format(i, total)
+        local icon       = SOURCE_ICON[source] or "?"
 
         if not src then
             Log.err(progress .. "  " .. name .. "  — FAILED")
@@ -402,14 +410,11 @@ local function main()
             if ok then
                 local key = (source == "stale") and "stale" or source
                 stats[key] = (stats[key] or 0) + 1
-                Log.ok(("%s  %s  %s  (%s · %d B)"):format(
-                    progress, icon, name, source, #src
-                ))
+                Log.ok(("%s  %s  %s  (%s · %d B)"):format(progress, icon, name, source, #src))
 
                 if name == "LoadingScreen" and NS.LoadingScreen and NS.LoadingScreen.Show then
                     pcall(function() NS.LoadingScreen.Show() end)
                 end
-
                 if NS.LoadingScreen and NS.LoadingScreen.Update then
                     pcall(function()
                         NS.LoadingScreen.Update(
@@ -432,16 +437,13 @@ local function main()
         end)
     end
 
-    -- ── Persist version only if everything succeeded ───────────────
     if newVer and stats.failed == 0 then
         saveVersion(newVer)
     end
 
-    -- ── Health check ──────────────────────────────────────────────
     print("")
     healthCheck(NS)
 
-    -- ── Summary ───────────────────────────────────────────────────
     local dt = os.clock() - t0
     print("")
     print("╭────────────────────────────────────────────────────────────────────────────────────╮")
@@ -458,4 +460,4 @@ end
 local ok, err = pcall(main)
 if not ok then
     warn("[LuxuryXHUB] ✗  Fatal error: " .. tostring(err))
-end 
+end
