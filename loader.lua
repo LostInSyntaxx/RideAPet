@@ -18,7 +18,6 @@ local CONFIG = {
     FORCE_REFRESH  = false,
     MAX_RETRIES    = 3,
 
-    -- โมดูลสำหรับ Main System
     MODULES = {
         "LoadingScreen","Config","Services","State","Utils","Webhook",
         "Stability","Interaction","Movement","Plot","ESP","Farm","Rebirth","UI","Bootstrap",
@@ -41,15 +40,9 @@ local CONFIG = {
         },
         {
             name      = "Ride A Pet",
-            isDefault = true, -- หากไม่ตรงกับเกมอื่น ให้ใช้ระบบโมดูลของเกมนี้เป็นหลัก
+            isDefault = true,
             modules   = true,
         },
-        -- {
-        --     name     = "My Other Game",
-        --     url      = "https://raw.githubusercontent.com/.../scripts/other_game.lua",
-        --     placeIds = { 12345678 },
-        --     gameIds  = { 87654321 },
-        -- },
     },
 }
 
@@ -88,7 +81,6 @@ function Log.err  (msg) warn (LOG_PREFIX .. " ✗  " .. tostring(msg)) end
 -- │  HELPERS & UTILS                                                │
 -- └─────────────────────────────────────────────────────────────────┘
 
--- รอจนกว่า GameId และ PlaceId จะโหลดสมบูรณ์
 local function waitForGameLoaded()
     local t0 = os.clock()
     while (game.PlaceId == 0 or game.GameId == 0) and (os.clock() - t0 < 5) do
@@ -108,16 +100,20 @@ local function httpGet(url)
     return nil
 end
 
--- ตัดลบ UTF-8 BOM กันภาษา Lua อ่านสคริปต์แล้วเกิด Syntax Error
-local function stripBOM(src)
-    if src and src:sub(1, 3) == "\239\187\191" then
-        return src:sub(4)
+-- คลีนอักขระขยะ/BOM ล่องหนที่ติดมาจากเว็บออก
+local function cleanSourceCode(src)
+    if not src then return "" end
+    -- ตัด UTF-8 BOM
+    if src:sub(1, 3) == "\239\187\191" then
+        src = src:sub(4)
     end
+    -- ตัดช่องว่าง/ขึ้นบรรทัดใหม่ส่วนเกินด้านหน้า
+    src = src:gsub("^%s+", "")
     return src
 end
 
 -- ┌─────────────────────────────────────────────────────────────────┐
--- │  CACHE SYSTEM (Dynamic Sub-folder per Game)                     │
+-- │  CACHE SYSTEM                                                   │
 -- └─────────────────────────────────────────────────────────────────┘
 
 local Cache = { memory = {}, dir = CONFIG.CACHE_DIR }
@@ -127,12 +123,8 @@ function Cache.init(subDir)
         Cache.dir = CONFIG.CACHE_DIR .. "/" .. subDir:gsub("[%s%c%p]", "_")
     end
     if not DISK_CACHE_OK then return end
-    if not isfolder(CONFIG.CACHE_DIR) then
-        pcall(function() makefolder(CONFIG.CACHE_DIR) end)
-    end
-    if not isfolder(Cache.dir) then
-        pcall(function() makefolder(Cache.dir) end)
-    end
+    if not isfolder(CONFIG.CACHE_DIR) then pcall(function() makefolder(CONFIG.CACHE_DIR) end) end
+    if not isfolder(Cache.dir) then pcall(function() makefolder(Cache.dir) end) end
 end
 
 function Cache.read(name)
@@ -164,9 +156,7 @@ function Cache.clear()
     if DISK_CACHE_OK and isfolder(Cache.dir) then
         for _, file in ipairs(CONFIG.MODULES) do
             local path = Cache.dir .. "/" .. file .. ".lua"
-            if isfile(path) and CAP.delfile then
-                pcall(function() delfile(path) end)
-            end
+            if isfile(path) and CAP.delfile then pcall(function() delfile(path) end) end
         end
     end
 end
@@ -241,12 +231,12 @@ local function fetchModule(name, forceRefresh)
 end
 
 local function compileAndRun(name, src)
-    if not src or #src < 20 then
+    if not src or #src < 10 then
         Log.err("Source code invalid/empty: " .. name)
         return false
     end
-    local safeChunkName = "@LuxuryXHUB/" .. name:gsub("[%s%c%p]", "_")
-    local chunk, compileErr = loadstring(src, safeChunkName)
+    src = cleanSourceCode(src)
+    local chunk, compileErr = loadstring(src, name)
     if not chunk then
         Log.err("Compile Error [" .. name .. "]: " .. tostring(compileErr))
         return false
@@ -268,13 +258,15 @@ local function runSingleScriptRoute(route, matchedBy)
         return false
     end
 
-    src = stripBOM(src)
+    src = cleanSourceCode(src)
 
-    -- แปลงชื่อเป็น safeChunkName ป้องกันช่องว่างและอักขระพิเศษทำพิษตอน loadstring
-    local safeChunkName = "@" .. route.name:gsub("[%s%c%p]", "_")
-    local fn, loadErr = loadstring(src, safeChunkName)
+    -- ใช้ loadstring แบบไม่มี Chunk Name เพื่อป้องกันปัญหาชื่อกระทบการ Parse โค้ด
+    local fn, loadErr = loadstring(src)
     if not fn then
         Log.err("Compile error in " .. route.name .. ": " .. tostring(loadErr))
+        -- พิมพ์บรรทัดแรกของสคริปต์ปลายทางออกมาเช็คดูว่าเขียนอะไรผิด
+        local firstLine = src:match("([^\r\n]+)") or "EMPTY"
+        Log.warn("First line of downloaded code: [" .. tostring(firstLine) .. "]")
         return false
     end
 
@@ -300,7 +292,6 @@ local function main()
         return
     end
 
-    -- รอให้ ID ของเกมถูกโหลดเสร็จสิ้น
     waitForGameLoaded()
 
     Log.info("🔍 Checking Game... PlaceId: " .. tostring(game.PlaceId) .. " | GameId: " .. tostring(game.GameId))
@@ -308,7 +299,6 @@ local function main()
     local selectedRoute = nil
     local matchedBy = nil
 
-    -- 1. ค้นหา Route ที่ตรงกับ PlaceId / GameId
     for _, route in ipairs(CONFIG.GAME_ROUTES) do
         local matched, by = matchRoute(route)
         if matched then
@@ -318,7 +308,6 @@ local function main()
         end
     end
 
-    -- 2. ถ้าไม่เจอ ให้ใข้ Default Route (ถ้ามี)
     if not selectedRoute then
         for _, route in ipairs(CONFIG.GAME_ROUTES) do
             if route.isDefault then
@@ -329,15 +318,11 @@ local function main()
         end
     end
 
-    -- 3. เริ่มรันตามประเภทของ Route
     if selectedRoute then
-        -- แบบ Script เดี่ยว (URL ตรง)
         if selectedRoute.url then
             local success = runSingleScriptRoute(selectedRoute, matchedBy)
             if success then return end
             Log.warn("Single script execution failed for " .. selectedRoute.name)
-        
-        -- แบบ Modular System
         elseif selectedRoute.modules then
             Log.info("🐾 Routing -> " .. selectedRoute.name .. " (Modular System)")
             
@@ -375,7 +360,6 @@ local function main()
     Log.err("No supported route or script found for PlaceId: " .. tostring(game.PlaceId))
 end
 
--- รันโปรแกรมหลัก
 local ok, err = pcall(main)
 if not ok then
     warn("[LuxuryXHUB] ✗ Fatal Error: " .. tostring(err))
