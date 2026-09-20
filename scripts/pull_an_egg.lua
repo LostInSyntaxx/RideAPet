@@ -47,10 +47,10 @@ local Config = {
     TrainInterval   = 0.1,
 
     AutoSell        = false,
-    SellInterval    = 5,
+    SellInterval    = 2,
 
     AutoRebirth     = false,
-    RebirthInterval = 2,
+    RebirthInterval = 1,
 
     AutoBuyDumbell  = false,
     AutoUpgradeCarry= false,
@@ -304,9 +304,9 @@ function Farm.startAutoBuyDumbell()
             for i = 1, 30 do
                 if not Config.AutoBuyDumbell then break end
                 Remotes.buyDumbell(i)
-                task.wait(0.15)
+                task.wait(0.05)
             end
-            task.wait(2)
+            task.wait(1)
         end
         Farm.Threads["AutoBuyDumbell"] = nil
     end)
@@ -322,7 +322,7 @@ function Farm.startAutoUpgradeCarry()
     Farm.Threads["AutoUpgradeCarry"] = task.spawn(function()
         while Runtime.Running and Config.AutoUpgradeCarry do
             Remotes.fire("Upgrade Carry Limit")
-            task.wait(2)
+            task.wait(1)
         end
         Farm.Threads["AutoUpgradeCarry"] = nil
     end)
@@ -353,13 +353,13 @@ function Farm.startAutoPullEgg()
                     local dist = (root.Position - targetPos).Magnitude
                     if dist > 8 then
                         Farm.teleportTo(part.CFrame, flyHeight)
-                        task.wait(0.2)
+                        task.wait(0.1)
                     end
                 end
                 Remotes.invoke("Strange: Claim Egg", targetTier)
                 Remotes.fire("Activate Dumbell")
             end
-            task.wait(0.2)
+            task.wait(0.1)
         end
 
         Farm.setFloat(false)
