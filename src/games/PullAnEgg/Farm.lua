@@ -23,6 +23,7 @@ end
 function Farm.hookAutoRevive()
     task.spawn(function()
         while true do
+            -- Skip GUI search entirely when AutoRevive is disabled
             if Config and Config.AutoRevive then
                 local pgui = LocalPlayer:FindFirstChild("PlayerGui")
                 local reviveGui = pgui and pgui:FindFirstChild("Revive")
@@ -300,6 +301,24 @@ function Farm.stopAutoPullEgg()
     Farm.setFloat(false)
     Farm.setNoclip(false)
     Farm.Threads["AutoPullEgg"] = nil
+end
+
+-- 7. Auto Buy Gear Loop
+function Farm.startAutoBuyGear()
+    if Farm.Threads["AutoBuyGear"] then return end
+    Farm.Threads["AutoBuyGear"] = task.spawn(function()
+        while Config.AutoBuyGear do
+            local gearId = Config.BuyGearId or "6"
+            Remotes.buyGear(gearId)
+            task.wait(Config.BuyGearInterval or 1)
+        end
+        Farm.Threads["AutoBuyGear"] = nil
+    end)
+end
+
+function Farm.stopAutoBuyGear()
+    Config.AutoBuyGear = false
+    Farm.Threads["AutoBuyGear"] = nil
 end
 
 return Farm

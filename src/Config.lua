@@ -22,6 +22,7 @@ NS.Config = {
     MovementSpeed = 350,
     HomeDepositWait = 1.3,
     AntiStuckThreshold = 2.2,
+    MovementTimeBuffer = 5.0,   -- Extra seconds added to movement timeout beyond travel estimate
 
     BestEggName = "cherub",
     AutoEggHoldTime = 2.5,

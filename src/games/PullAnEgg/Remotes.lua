@@ -104,4 +104,10 @@ function Remotes.openLuckyBlock(uuid)
     return Remotes.fireEvent("Open Lucky Block", uuid)
 end
 
+-- 12. Buy Gear
+function Remotes.buyGear(gearId)
+    local id = tostring(gearId or "6")
+    return Remotes.fireEvent("Buy Gear", id, "Buy")
+end
+
 return Remotes

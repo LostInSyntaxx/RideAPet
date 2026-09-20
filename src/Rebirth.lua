@@ -34,6 +34,7 @@ function Rebirth.findEggByName(eggName)
     if not folder then return nil end
     local query = eggName:lower():match("^%s*(.-)%s*$")
     local now = os.clock()
+    -- Pass 1: prefer eggs not currently on cooldown
     for _, egg in ipairs(folder:GetChildren()) do
         local cd = StateStore.eggCooldowns[egg]
         local onCooldown = (cd and now <= cd)
@@ -42,6 +43,8 @@ function Rebirth.findEggByName(eggName)
             if n == query or string.find(n, query, 1, true) or string.find(query, n, 1, true) then return egg end
         end
     end
+    -- Pass 2: fallback — accept any matching egg even if on cooldown,
+    -- so rebirth isn't blocked just because the egg was recently touched.
     for _, egg in ipairs(folder:GetChildren()) do
         if Utils.isValidEgg(egg) then
             local n = egg.Name:lower()
@@ -153,13 +156,15 @@ function Rebirth.startAutoRebirth(statusUpdater, stopButtonUpdater)
     StateStore.autoRebirthThread = task.spawn(function()
         while StateStore.autoRebirthActive do
             if statusUpdater then statusUpdater("Checking Rebirth...", AppConfig.AccentGold) end
-            Rebirth.fireRebirth()
-            task.wait(0.6)
+
+            -- Scan FIRST, then decide whether to fire
             local missing = Rebirth.scanMissingEggs()
 
             if #missing == 0 then
+                -- Requirements met — fire rebirth
                 if statusUpdater then statusUpdater("Rebirth Fired!", AppConfig.AccentGreen) end
-                task.wait(1.2)
+                Rebirth.fireRebirth()
+                task.wait(0.6)
                 Rebirth.fireRebirth()
                 task.wait(1.5)
             else

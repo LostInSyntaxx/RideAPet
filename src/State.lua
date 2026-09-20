@@ -103,6 +103,7 @@ function StateStore.reset()
     table.clear(StateStore.farmHistory)
     table.clear(StateStore.recentAlerts)
     table.clear(StateStore.missingRebirthEggs)
+    table.clear(StateStore.eggData)  -- clear stale ESP billboard references
 end
 
 NS.StateStore = StateStore

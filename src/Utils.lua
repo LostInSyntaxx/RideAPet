@@ -98,10 +98,10 @@ end
 function Utils.resetVelocity(root)
     if not root then return end
     pcall(function()
-        root.AssemblyLinearVelocity = Vector3.zero
+        root.AssemblyLinearVelocity  = Vector3.zero
         root.AssemblyAngularVelocity = Vector3.zero
-        root.Velocity = Vector3.zero
-        root.RotVelocity = Vector3.zero
+        -- Note: root.Velocity and root.RotVelocity were removed in newer
+        -- engine versions; AssemblyLinear/AngularVelocity are the correct API.
     end)
 end
 

@@ -80,7 +80,9 @@ function Movement.moveTo(target)
     local oldAutoRotate = humanoid.AutoRotate
     local success = false
     local startTime = os.clock()
-    local maxTime = math.max(3.5, (startDistance / AppConfig.MovementSpeed) + 2.5)
+    -- Add a generous fixed buffer (5s) on top of the travel estimate so
+    -- server-lag frames or a single respawn don't prematurely time out movement.
+    local maxTime = math.max(4.0, (startDistance / AppConfig.MovementSpeed) + (AppConfig.MovementTimeBuffer or 5.0))
     local lastCheckPos = root.Position
     local lastCheckTime = os.clock()
 

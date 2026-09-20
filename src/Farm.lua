@@ -77,9 +77,9 @@ function Farm.startAutoFarm(statusUpdater, stopButtonUpdater)
             else
                 for _, egg in ipairs(readyEggs) do
                     if not StateStore.autoFarmActive then break end
-                    local cd = StateStore.eggCooldowns[egg]
-                    local onCooldown = (cd and os.clock() <= cd)
-                    if Utils.isValidEgg(egg) and not StateStore.autoFarmProcessed[egg] and not onCooldown then
+                    -- getReadyEggs() already filters cooldowns and processed flags;
+                    -- only re-validate the egg is still live in the workspace.
+                    if Utils.isValidEgg(egg) then
                         local currentEggName = egg.Name
                         if statusUpdater then statusUpdater("Farming: " .. currentEggName, AppConfig.AccentGreen) end
 

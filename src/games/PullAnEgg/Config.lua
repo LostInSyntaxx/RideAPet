@@ -22,6 +22,10 @@ local Config = {
     AutoUpgradeCarry= false,
     AutoRevive      = true, -- Automatically click Yes to revive instantly without waiting 8s
 
+    AutoBuyGear     = false,
+    BuyGearId       = "6",  -- Gear ID to purchase (matches "Buy Gear" remote argument)
+    BuyGearInterval = 1,    -- Seconds between each buy attempt
+
     AutoPullEgg     = false,
     TargetEggTier   = "Celestial", -- Default target tier
     FlyHeight       = 16,          -- Safe height above egg to dodge boss attacks
