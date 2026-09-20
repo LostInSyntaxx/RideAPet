@@ -2,7 +2,7 @@
 
 -- ── Configuration & Constants ───────────────────────────────────────
 -- ⚠️ เปลี่ยน URL ด้านล่างนี้ให้ตรงกับลิงก์ Raw Lua ของคุณเองสำหรับระบบ Rejoin/Server Hop
-local SCRIPT_RAW_URL = "https://raw.githubusercontent.com/YourUsername/YourRepo/main/pull_an_egg_2.lua"
+local SCRIPT_RAW_URL = "https://raw.githubusercontent.com/YourUsername/YourRepo/main/pull_an_egg.lua"
 
 -- ── 0. Cleanup Previous Instance (Prevent duplicate execution) ──────
 if getgenv().LuxuryXHUB_PullAnEgg and typeof(getgenv().LuxuryXHUB_PullAnEgg.Unload) == "function" then
@@ -264,7 +264,7 @@ function Farm.startAutoSell()
     Farm.Threads["AutoSell"] = task.spawn(function()
         while Runtime.Running and Config.AutoSell do
             Remotes.fire("Sell All Friends")
-            task.wait(Config.SellInterval or 5)
+            task.wait(Config.SellInterval or 2)
         end
         Farm.Threads["AutoSell"] = nil
     end)
@@ -280,7 +280,7 @@ function Farm.startAutoRebirth()
     Farm.Threads["AutoRebirth"] = task.spawn(function()
         while Runtime.Running and Config.AutoRebirth do
             Remotes.fire("Rebirth")
-            task.wait(Config.RebirthInterval or 2)
+            task.wait(Config.RebirthInterval or 1)
         end
         Farm.Threads["AutoRebirth"] = nil
     end)
@@ -519,7 +519,7 @@ local function stroke(p, col, th)
 end
 local function list(p, pad, dir)
     local l=Instance.new("UIListLayout") l.Padding=UDim.new(0,pad or 8)
-    l.SortOrder=Enum.SortOrder.LayoutOrder l.FillDirection=dir or Enum.FillDirection.Horizontal l.Parent=p return l
+    l.SortOrder=Enum.SortOrder.LayoutOrder l.FillDirection=dir or Enum.FillDirection.Vertical l.Parent=p return l
 end
 local function pad(p, x, y)
     local u=Instance.new("UIPadding") u.PaddingLeft=UDim.new(0,x or 12) u.PaddingRight=UDim.new(0,x or 12)
@@ -733,7 +733,12 @@ local function buildUI()
     ribbonRow.Size = UDim2.new(1, -14, 1, -4)
     ribbonRow.BackgroundTransparency = 1
     ribbonRow.Parent = ribbon
-    list(ribbonRow, 4, Enum.FillDirection.Horizontal)
+    
+    local ribbonList = Instance.new("UIListLayout")
+    ribbonList.Padding = UDim.new(0, 4)
+    ribbonList.SortOrder = Enum.SortOrder.LayoutOrder
+    ribbonList.FillDirection = Enum.FillDirection.Horizontal
+    ribbonList.Parent = ribbonRow
 
     local ribbonRule = Instance.new("Frame")
     ribbonRule.Position = UDim2.new(0,0,1,-1)
@@ -750,69 +755,49 @@ local function buildUI()
     contentArea.Parent = main
 
     -- ─────────────────────────────────────────────────────────────
-    --  COMPONENT BUILDERS
+    --  COMPONENT BUILDERS (FIXED UI CREATION)
     -- ─────────────────────────────────────────────────────────────
 
-    local function outerCard(parent, h)
+    local function createToggle(page, labelText, defaultState, onToggle)
         local o = Instance.new("Frame")
-        o.Size = UDim2.new(1, 0, 0, h or 66)
+        o.Size = UDim2.new(1, 0, 0, 48)
         o.BackgroundColor3 = C.BG2
         o.BorderSizePixel = 0
-        o.Parent = parent
-        corner(o, UDim.new(0, 12))
+        o.Parent = page
+        corner(o, UDim.new(0, 8))
         stroke(o, C.Border1, 1)
-        return o
-    end
-
-    local function innerCard(outer, marginX, marginY)
-        local mx, my = marginX or 5, marginY or 5
-        local i = Instance.new("Frame")
-        i.Size = UDim2.new(1, -mx*2, 1, -my*2)
-        i.Position = UDim2.new(0, mx, 0, my)
-        i.BackgroundColor3 = C.BG3
-        i.BorderSizePixel = 0
-        i.Parent = outer
-        corner(i, UDim.new(0, 8))
-        stroke(i, C.Border2, 1)
-        return i
-    end
-
-    local function createToggle(page, labelText, defaultState, onToggle)
-        local o = outerCard(page, 62)
-        local inn = innerCard(o)
 
         local dot = Instance.new("Frame")
         dot.Position = UDim2.new(0, 12, 0.5, -4)
         dot.Size = UDim2.new(0, 8, 0, 8)
         dot.BackgroundColor3 = defaultState and C.Green or C.TextMuted
         dot.BorderSizePixel = 0
-        dot.Parent = inn
+        dot.Parent = o
         corner(dot, UDim.new(1, 0))
 
         local lbl = Instance.new("TextLabel")
         lbl.Position = UDim2.new(0, 28, 0, 0)
-        lbl.Size = UDim2.new(1, -96, 1, 0)
+        lbl.Size = UDim2.new(1, -90, 1, 0)
         lbl.BackgroundTransparency = 1
         lbl.Text = labelText
         lbl.TextColor3 = C.TextPri
         lbl.Font = Enum.Font.GothamMedium
         lbl.TextSize = 13
         lbl.TextXAlignment = Enum.TextXAlignment.Left
-        lbl.TextTruncate = Enum.TextTruncate.AtEnd
-        lbl.Parent = inn
+        lbl.Parent = o
 
         local track = Instance.new("Frame")
-        track.Position = UDim2.new(1, -60, 0.5, -12)
-        track.Size = UDim2.new(0, 48, 0, 24)
+        track.Position = UDim2.new(1, -52, 0.5, -11)
+        track.Size = UDim2.new(0, 40, 0, 22)
         track.BackgroundColor3 = defaultState and C.GreenDim or C.BG0
         track.BorderSizePixel = 0
-        track.Parent = inn
+        track.Parent = o
         corner(track, UDim.new(1, 0))
         local trackS = stroke(track, defaultState and C.Green or C.Border1, 1)
 
         local knob = Instance.new("Frame")
-        knob.Size = UDim2.new(0, 16, 0, 16)
-        knob.Position = defaultState and UDim2.new(1, -20, 0.5, -8) or UDim2.new(0, 4, 0.5, -8)
+        knob.Size = UDim2.new(0, 14, 0, 14)
+        knob.Position = defaultState and UDim2.new(1, -18, 0.5, -7) or UDim2.new(0, 4, 0.5, -7)
         knob.BackgroundColor3 = defaultState and C.Green or C.TextMuted
         knob.BorderSizePixel = 0
         knob.Parent = track
@@ -822,38 +807,38 @@ local function buildUI()
         hit.Size = UDim2.new(1, 0, 1, 0)
         hit.BackgroundTransparency = 1
         hit.Text = ""
-        hit.Parent = inn
+        hit.Parent = o
 
         local state = defaultState
         hit.MouseButton1Click:Connect(function()
             state = not state
-            tw(knob, {Position = state and UDim2.new(1,-20,0.5,-8) or UDim2.new(0,4,0.5,-8), BackgroundColor3 = state and C.Green or C.TextMuted})
+            tw(knob, {Position = state and UDim2.new(1,-18,0.5,-7) or UDim2.new(0,4,0.5,-7), BackgroundColor3 = state and C.Green or C.TextMuted})
             tw(track, {BackgroundColor3 = state and C.GreenDim or C.BG0})
             tw(trackS, {Color = state and C.Green or C.Border1})
             tw(dot,   {BackgroundColor3 = state and C.Green or C.TextMuted})
             if onToggle then onToggle(state) end
         end)
-        hit.MouseEnter:Connect(function() tw(o, {BackgroundColor3 = Color3.fromRGB(42,42,42)}) end)
-        hit.MouseLeave:Connect(function() tw(o, {BackgroundColor3 = C.BG2}) end)
         return o
     end
 
     local function createButton(page, labelText, accentCol, onClick)
-        local o = outerCard(page, 52)
+        local o = Instance.new("Frame")
+        o.Size = UDim2.new(1, 0, 0, 42)
+        o.BackgroundColor3 = C.BG2
+        o.BorderSizePixel = 0
+        o.Parent = page
+        corner(o, UDim.new(0, 8))
+        stroke(o, C.Border1, 1)
+
         local inn = Instance.new("TextButton")
-        inn.Size = UDim2.new(1,-10,1,-10)
-        inn.Position = UDim2.new(0,5,0,5)
-        inn.BackgroundColor3 = C.BG3
+        inn.Size = UDim2.new(1, 0, 1, 0)
+        inn.BackgroundTransparency = 1
         inn.Text = ""
-        inn.AutoButtonColor = false
-        inn.BorderSizePixel = 0
         inn.Parent = o
-        corner(inn, UDim.new(0, 8))
-        stroke(inn, C.Border2, 1)
 
         local bar = Instance.new("Frame")
-        bar.Size = UDim2.new(0, 3, 0.55, 0)
-        bar.Position = UDim2.new(0, 10, 0.225, 0)
+        bar.Size = UDim2.new(0, 3, 0.5, 0)
+        bar.Position = UDim2.new(0, 10, 0.25, 0)
         bar.BackgroundColor3 = accentCol or C.Gold
         bar.BorderSizePixel = 0
         bar.Parent = inn
@@ -868,30 +853,11 @@ local function buildUI()
         lbl.Font = Enum.Font.GothamMedium
         lbl.TextSize = 13
         lbl.TextXAlignment = Enum.TextXAlignment.Left
-        lbl.TextTruncate = Enum.TextTruncate.AtEnd
         lbl.Parent = inn
 
-        local arr = Instance.new("TextLabel")
-        arr.Position = UDim2.new(1, -26, 0, 0)
-        arr.Size = UDim2.new(0, 18, 1, 0)
-        arr.BackgroundTransparency = 1
-        arr.Text = "›"
-        arr.TextColor3 = C.TextMuted
-        arr.Font = Enum.Font.GothamBold
-        arr.TextSize = 18
-        arr.Parent = inn
-
-        inn.MouseEnter:Connect(function()
-            tw(inn, {BackgroundColor3 = Color3.fromRGB(38,38,38)})
-            tw(lbl, {TextColor3 = accentCol or C.Gold})
-            tw(arr, {TextColor3 = accentCol or C.Gold})
+        inn.MouseButton1Click:Connect(function()
+            if onClick then onClick() end
         end)
-        inn.MouseLeave:Connect(function()
-            tw(inn, {BackgroundColor3 = C.BG3})
-            tw(lbl, {TextColor3 = C.TextPri})
-            tw(arr, {TextColor3 = C.TextMuted})
-        end)
-        inn.MouseButton1Click:Connect(function() if onClick then onClick() end end)
         return o
     end
 
@@ -957,7 +923,11 @@ local function buildUI()
         brow.Size = UDim2.new(1,0,1,0)
         brow.BackgroundTransparency = 1
         brow.Parent = btn
-        list(brow, 5, Enum.FillDirection.Horizontal)
+        
+        local browList = Instance.new("UIListLayout")
+        browList.Padding = UDim.new(0, 5)
+        browList.FillDirection = Enum.FillDirection.Horizontal
+        browList.Parent = brow
 
         local ic = Instance.new("TextLabel")
         ic.Size = UDim2.new(0,16,1,0)
