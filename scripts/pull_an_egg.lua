@@ -1,4 +1,9 @@
+-- LuxuryXHUB — Pull An Egg (Standalone Suite)
+
+-- ── Configuration & Constants ───────────────────────────────────────
+-- ⚠️ เปลี่ยน URL ด้านล่างนี้ให้ตรงกับลิงก์ Raw Lua ของคุณเองสำหรับระบบ Rejoin/Server Hop
 local SCRIPT_RAW_URL = "https://raw.githubusercontent.com/YourUsername/YourRepo/main/pull_an_egg_2.lua"
+
 -- ── 0. Cleanup Previous Instance (Prevent duplicate execution) ──────
 if getgenv().LuxuryXHUB_PullAnEgg and typeof(getgenv().LuxuryXHUB_PullAnEgg.Unload) == "function" then
     pcall(function()
@@ -293,7 +298,7 @@ function Farm.startAutoBuyDumbell()
             for i = 1, 30 do
                 if not Config.AutoBuyDumbell then break end
                 Remotes.buyDumbell(i)
-                task.wait(0.08) -- ปรับหน่วงเล็กน้อยป้องกัน Lag
+                task.wait(0.08)
             end
             task.wait(1)
         end
@@ -346,7 +351,6 @@ function Farm.startAutoPullEgg()
                     end
                 end
                 
-                -- ครอบ pcall เพื่อป้องกันไม่ให้ Thread ค้าง
                 pcall(function()
                     Remotes.invoke("Strange: Claim Egg", targetTier)
                 end)
@@ -515,7 +519,7 @@ local function stroke(p, col, th)
 end
 local function list(p, pad, dir)
     local l=Instance.new("UIListLayout") l.Padding=UDim.new(0,pad or 8)
-    l.SortOrder=Enum.SortOrder.LayoutOrder l.FillDirection=dir or Enum.FillDirection.Vertical l.Parent=p return l
+    l.SortOrder=Enum.SortOrder.LayoutOrder l.FillDirection=dir or Enum.FillDirection.Horizontal l.Parent=p return l
 end
 local function pad(p, x, y)
     local u=Instance.new("UIPadding") u.PaddingLeft=UDim.new(0,x or 12) u.PaddingRight=UDim.new(0,x or 12)
