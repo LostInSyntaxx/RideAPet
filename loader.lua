@@ -1,6 +1,6 @@
 --[[
 ╭────────────────────────────────────────────────────────────────────────────────────╮
-│                        Modular Script Loader                                       │
+│                        Modular Script Loader (Multi-Game Ready)                    │
 │              Auto-cache  ·  Auto-refresh  ·  Health check                         │
 ╰────────────────────────────────────────────────────────────────────────────────────╯
 ]]
@@ -18,6 +18,7 @@ local CONFIG = {
     FORCE_REFRESH  = false,
     MAX_RETRIES    = 3,
 
+    -- โมดูลสำหรับ Main System (จะรันเมื่อเกมตรงกับ Default หรือ Main Route)
     MODULES = {
         "LoadingScreen","Config","Services","State","Utils","Webhook",
         "Stability","Interaction","Movement","Plot","ESP","Farm","Rebirth","UI","Bootstrap",
@@ -31,10 +32,7 @@ local CONFIG = {
     NAMESPACE = "EggsESP",
 
     -- ── Multi-Game Routes ─────────────────────────────────────────
-    -- Each entry: { name, url, placeIds={}, gameIds={} }
-    -- placeIds → match game.PlaceId (exact place, highest priority)
-    -- gameIds  → match game.GameId  (whole universe, fallback)
-    -- First match wins and exits early. Add more games here easily.
+    -- ตรวจสอบทั้ง PlaceId และ GameId (รองรับทั้งตัวเลข และ String กันเหนียว)
     GAME_ROUTES = {
         {
             name     = "Pull An Egg",
@@ -42,11 +40,17 @@ local CONFIG = {
             placeIds = { 70640255604878 },
             gameIds  = { 10649255304 },
         },
+        {
+            name     = "Ride A Pet",
+            isDefault = true, -- กำหนดให้เป็นเกมหลักหากไม่ตรงกับเกมอื่น
+            modules  = true,  -- ใช้ระบบแยกโมดูล
+        },
+        -- ตัวอย่างการเพิ่มเกมใหม่:
         -- {
         --     name     = "My Other Game",
         --     url      = "https://raw.githubusercontent.com/.../scripts/other_game.lua",
         --     placeIds = { 12345678 },
-        --     gameIds  = {},
+        --     gameIds  = { 87654321 },
         -- },
     },
 }
@@ -81,15 +85,18 @@ function Log.info (msg) print(LOG_PREFIX .. "  " .. tostring(msg)) end
 function Log.ok   (msg) print(LOG_PREFIX .. " ✓  " .. tostring(msg)) end
 function Log.warn (msg) warn (LOG_PREFIX .. " ⚠  " .. tostring(msg)) end
 function Log.err  (msg) warn (LOG_PREFIX .. " ✗  " .. tostring(msg)) end
-function Log.debug(msg)
-    if CONFIG.FORCE_REFRESH then
-        print(LOG_PREFIX .. " [dbg]  " .. tostring(msg))
-    end
-end
 
 -- ┌─────────────────────────────────────────────────────────────────┐
--- │  HTTP HELPER  (retry + back-off)                                │
+-- │  HELPERS & UTILS                                                │
 -- └─────────────────────────────────────────────────────────────────┘
+
+-- รอจนกว่า GameId และ PlaceId จะโหลดสมบูรณ์
+local function waitForGameLoaded()
+    local t0 = os.clock()
+    while (game.PlaceId == 0 or game.GameId == 0) and (os.clock() - t0 < 5) do
+        task.wait(0.1)
+    end
+end
 
 local function httpGet(url)
     local lastErr
@@ -103,7 +110,7 @@ local function httpGet(url)
     return nil
 end
 
--- Strip UTF-8 BOM (\xEF\xBB\xBF / U+FEFF) — Lua cannot parse it
+-- ตัดลบ BOM ออกกันภาษา Lua อ่านแล้วเจอ error syntax
 local function stripBOM(src)
     if src and src:sub(1, 3) == "\239\187\191" then
         return src:sub(4)
@@ -112,25 +119,28 @@ local function stripBOM(src)
 end
 
 -- ┌─────────────────────────────────────────────────────────────────┐
--- │  CACHE  (memory + optional disk)                                │
+-- │  CACHE SYSTEM (Dynamic Sub-folder per Game)                     │
 -- └─────────────────────────────────────────────────────────────────┘
 
-local Cache = { memory = {} }
+local Cache = { memory = {}, dir = CONFIG.CACHE_DIR }
 
-function Cache.init()
-    if not DISK_CACHE_OK then
-        Log.warn("Disk cache unavailable — running in-memory only")
-        return
+function Cache.init(subDir)
+    if subDir then
+        Cache.dir = CONFIG.CACHE_DIR .. "/" .. subDir:gsub("[%s%c%p]", "_")
     end
+    if not DISK_CACHE_OK then return end
     if not isfolder(CONFIG.CACHE_DIR) then
         pcall(function() makefolder(CONFIG.CACHE_DIR) end)
+    end
+    if not isfolder(Cache.dir) then
+        pcall(function() makefolder(Cache.dir) end)
     end
 end
 
 function Cache.read(name)
     if Cache.memory[name] then return Cache.memory[name] end
     if DISK_CACHE_OK then
-        local path = CONFIG.CACHE_DIR .. "/" .. name .. ".lua"
+        local path = Cache.dir .. "/" .. name .. ".lua"
         if isfile(path) then
             local ok, data = pcall(function() return readfile(path) end)
             if ok and data and #data > 0 then
@@ -146,16 +156,16 @@ function Cache.write(name, data)
     if not data or #data == 0 then return end
     Cache.memory[name] = data
     if DISK_CACHE_OK then
-        local path = CONFIG.CACHE_DIR .. "/" .. name .. ".lua"
+        local path = Cache.dir .. "/" .. name .. ".lua"
         pcall(function() writefile(path, data) end)
     end
 end
 
 function Cache.clear()
     Cache.memory = {}
-    if DISK_CACHE_OK and isfolder(CONFIG.CACHE_DIR) then
+    if DISK_CACHE_OK and isfolder(Cache.dir) then
         for _, file in ipairs(CONFIG.MODULES) do
-            local path = CONFIG.CACHE_DIR .. "/" .. file .. ".lua"
+            local path = Cache.dir .. "/" .. file .. ".lua"
             if isfile(path) and CAP.delfile then
                 pcall(function() delfile(path) end)
             end
@@ -175,7 +185,7 @@ local function checkVersion()
 
     local localVer = nil
     if DISK_CACHE_OK then
-        local path = CONFIG.CACHE_DIR .. "/_version.txt"
+        local path = Cache.dir .. "/_version.txt"
         if isfile(path) then
             local ok, data = pcall(function() return readfile(path) end)
             if ok then localVer = data:match("^%s*(.-)%s*$") end
@@ -185,10 +195,7 @@ local function checkVersion()
     end
 
     if localVer ~= remoteVer then
-        Log.info(("Version changed  %s  →  %s"):format(
-            tostring(localVer) == "nil" and "none" or tostring(localVer),
-            remoteVer
-        ))
+        Log.info(("Version updated: %s -> %s"):format(tostring(localVer or "none"), remoteVer))
         return remoteVer, true
     end
     return remoteVer, false
@@ -197,16 +204,27 @@ end
 local function saveVersion(ver)
     if not ver then return end
     if DISK_CACHE_OK then
-        pcall(function()
-            writefile(CONFIG.CACHE_DIR .. "/_version.txt", ver)
-        end)
+        pcall(function() writefile(Cache.dir .. "/_version.txt", ver) end)
     end
     Cache.memory._version = ver
 end
 
 -- ┌─────────────────────────────────────────────────────────────────┐
--- │  MODULE FETCH                                                   │
+-- │  ROUTER & EXECUTION                                             │
 -- └─────────────────────────────────────────────────────────────────┘
+
+local function matchRoute(route)
+    local pid = game.PlaceId
+    local gid = game.GameId
+
+    for _, id in ipairs(route.placeIds or {}) do
+        if pid == tonumber(id) then return true, "PlaceId" end
+    end
+    for _, id in ipairs(route.gameIds or {}) do
+        if gid == tonumber(id) then return true, "GameId" end
+    end
+    return false, nil
+end
 
 local function fetchModule(name, forceRefresh)
     if not forceRefresh and not CONFIG.FORCE_REFRESH then
@@ -224,76 +242,34 @@ local function fetchModule(name, forceRefresh)
     return src, "http"
 end
 
--- ┌─────────────────────────────────────────────────────────────────┐
--- │  COMPILE & EXECUTE                                              │
--- └─────────────────────────────────────────────────────────────────┘
-
 local function compileAndRun(name, src)
     if not src or #src < 20 then
-        Log.err("Source too small to be valid: " .. name)
+        Log.err("Source code invalid/empty: " .. name)
         return false
     end
     local chunk, compileErr = loadstring(src, "@LuxuryXHUB/" .. name)
     if not chunk then
-        Log.err("Compile error in " .. name .. ": " .. tostring(compileErr))
+        Log.err("Compile Error [" .. name .. "]: " .. tostring(compileErr))
         return false
     end
     local ok, runtimeErr = pcall(chunk)
     if not ok then
-        Log.err("Runtime error in " .. name .. ": " .. tostring(runtimeErr))
+        Log.err("Runtime Error [" .. name .. "]: " .. tostring(runtimeErr))
         return false
     end
     return true
 end
 
--- ┌─────────────────────────────────────────────────────────────────┐
--- │  HEALTH CHECK                                                   │
--- └─────────────────────────────────────────────────────────────────┘
-
-local function healthCheck(NS)
-    local missing = {}
-    for _, key in ipairs(CONFIG.REQUIRED) do
-        if not NS[key] then table.insert(missing, key) end
-    end
-    if #missing > 0 then
-        Log.err("Health check FAILED — missing: " .. table.concat(missing, ", "))
-        return false
-    end
-    Log.ok("Health check passed — all required modules present")
-    return true
-end
-
--- ┌─────────────────────────────────────────────────────────────────┐
--- │  MULTI-GAME ROUTER                                              │
--- └─────────────────────────────────────────────────────────────────┘
-
--- Check if current game matches a route.
--- placeIds checked first (most specific), then gameIds (universe fallback).
-local function matchRoute(route)
-    local pid = game.PlaceId
-    local gid = game.GameId
-    for _, id in ipairs(route.placeIds or {}) do
-        if pid == id then return true, "PlaceId" end
-    end
-    for _, id in ipairs(route.gameIds or {}) do
-        if gid == id then return true, "GameId" end
-    end
-    return false, nil
-end
-
-local function runRoute(route, matchedBy)
-    Log.info("🎮 Routing -> " .. route.name
-        .. " (matched by " .. matchedBy
-        .. " | PlaceId: " .. tostring(game.PlaceId) .. ")")
+local function runSingleScriptRoute(route, matchedBy)
+    Log.info("🎮 Routing -> " .. route.name .. " (Matched: " .. tostring(matchedBy) .. ")")
 
     local src = httpGet(route.url)
     if not src then
-        Log.err("Failed to fetch script for: " .. route.name)
+        Log.err("Failed to download script for: " .. route.name)
         return false
     end
 
     src = stripBOM(src)
-
     local fn, loadErr = loadstring(src, "@" .. route.name)
     if not fn then
         Log.err("Compile error in " .. route.name .. ": " .. tostring(loadErr))
@@ -306,158 +282,99 @@ local function runRoute(route, matchedBy)
         return false
     end
 
-    Log.ok(route.name .. " initialized!")
+    Log.ok(route.name .. " loaded successfully!")
     return true
 end
 
 -- ┌─────────────────────────────────────────────────────────────────┐
--- │  MAIN                                                           │
+-- │  MAIN ENTRY POINT                                               │
 -- └─────────────────────────────────────────────────────────────────┘
 
 local function main()
     local t0 = os.clock()
-
-    print("")
-    print("╭────────────────────────────────────────────────────────────────────────────────────╮")
-    print("│                                                                                    │")
-    print("│  ##       ##     ## ##     ## ##     ## ########  ##    ##                         │")
-    print("│  ##       ##     ##  ##   ##  ##     ## ##     ##  ##  ##                          │")
-    print("│  ##       ##     ##   ## ##   ##     ## ##     ##   ####                           │")
-    print("│  ##       ##     ##    ###    ##     ## ########     ##                            │")
-    print("│  ##       ##     ##   ## ##   ##     ## ##   ##      ##                            │")
-    print("│  ##       ##     ##  ##   ##  ##     ## ##    ##     ##                            │")
-    print("│  ########  #######  ##     ##  #######  ##     ##    ##                            │")
-    print("│                                                                                    │")
-    print("│  ##     ## ##     ## ##     ## ########                                            │")
-    print("│   ##   ##  ##     ## ##     ## ##     ##                                           │")
-    print("│    ## ##   ##     ## ##     ## ##     ##                                           │")
-    print("│     ###    ######### ##     ## ########                                            │")
-    print("│    ## ##   ##     ## ##     ## ##     ##                                           │")
-    print("│   ##   ##  ##     ## ##     ## ##     ##                                           │")
-    print("│  ##     ## ##     ##  #######  ########                                            │")
-    print("│                                                                                    │")
-    print("│                        Modular Script Loader                                       │")
-    print("│              Auto-cache  ·  Auto-refresh  ·  Health check                         │")
-    print("│                                                                                    │")
-    print("╰────────────────────────────────────────────────────────────────────────────────────╯")
-    print("")
-
-    -- ── Pre-flight ────────────────────────────────────────────────
+    
     if not CAP.loadstring then
-        Log.err("Executor does not support loadstring — aborting")
+        Log.err("Executor does not support loadstring — process aborted")
         return
     end
 
-    -- ── Multi-Game Routing ─────────────────────────────────────────
-    Log.info("🔍 PlaceId = " .. tostring(game.PlaceId) .. "  |  GameId = " .. tostring(game.GameId))
+    -- รอให้ ID ของเกมถูกโหลดจนเสร็จป้องกันการแมตช์พลาด
+    waitForGameLoaded()
 
+    Log.info("🔍 Checking Game... PlaceId: " .. tostring(game.PlaceId) .. " | GameId: " .. tostring(game.GameId))
+
+    local selectedRoute = nil
+    local matchedBy = nil
+
+    -- 1. ค้นหา Route ที่ตรงกับ PlaceId / GameId
     for _, route in ipairs(CONFIG.GAME_ROUTES) do
-        local matched, matchedBy = matchRoute(route)
+        local matched, by = matchRoute(route)
         if matched then
-            local success = runRoute(route, matchedBy)
-            if success then return end -- success → exit loader
-            Log.warn("Route failed for " .. route.name .. " — falling back to modular system")
+            selectedRoute = route
+            matchedBy = by
             break
         end
     end
 
-    -- ── Ride A Pet modular system ──────────────────────────────────
-    Log.info("🐾 Routing -> Ride A Pet — loading modular system…")
-
-    Cache.init()
-
-    local newVer, needsRefresh = checkVersion()
-    if needsRefresh then
-        Log.info("New version detected — clearing cache and pulling fresh modules")
-        Cache.clear()
-    else
-        Log.info("Version up-to-date — using cache where available")
-    end
-
-    getgenv()[CONFIG.NAMESPACE] = getgenv()[CONFIG.NAMESPACE] or {}
-    local NS = getgenv()[CONFIG.NAMESPACE]
-    getgenv().EggsESP = NS
-    getgenv().LuxuryXHUB = NS
-    NS.Modules = NS.Modules or {}
-
-    local total      = #CONFIG.MODULES
-    local stats      = { cache = 0, http = 0, stale = 0, failed = 0 }
-    local SOURCE_ICON = { cache = "💾", http = "🌐", stale = "♻️", failed = "✗" }
-
-    print("")
-    Log.info(("Loading %d modules…"):format(total))
-    print("")
-
-    for i, name in ipairs(CONFIG.MODULES) do
-        local src, source = fetchModule(name, needsRefresh)
-        local progress   = ("[%02d/%02d]"):format(i, total)
-        local icon       = SOURCE_ICON[source] or "?"
-
-        if not src then
-            Log.err(progress .. "  " .. name .. "  — FAILED")
-            stats.failed = stats.failed + 1
-            if NS.LoadingScreen and NS.LoadingScreen.Update then
-                pcall(function()
-                    NS.LoadingScreen.Update(
-                        (i / total) * 100,
-                        "⚠️ Error loading " .. name,
-                        "(" .. name .. ")"
-                    )
-                end)
-            end
-        else
-            local ok = compileAndRun(name, src)
-            if ok then
-                local key = (source == "stale") and "stale" or source
-                stats[key] = (stats[key] or 0) + 1
-                Log.ok(("%s  %s  %s  (%s · %d B)"):format(progress, icon, name, source, #src))
-
-                if name == "LoadingScreen" and NS.LoadingScreen and NS.LoadingScreen.Show then
-                    pcall(function() NS.LoadingScreen.Show() end)
-                end
-                if NS.LoadingScreen and NS.LoadingScreen.Update then
-                    pcall(function()
-                        NS.LoadingScreen.Update(
-                            (i / total) * 100,
-                            "📦 Loading modules...",
-                            "(" .. name .. ")"
-                        )
-                    end)
-                end
-            else
-                stats.failed = stats.failed + 1
+    -- 2. ถ้าไม่เจอ Route ให้ใช้ Default Route (ถ้ามี)
+    if not selectedRoute then
+        for _, route in ipairs(CONFIG.GAME_ROUTES) do
+            if route.isDefault then
+                selectedRoute = route
+                matchedBy = "Default Fallback"
+                break
             end
         end
     end
 
-    if NS.LoadingScreen and NS.LoadingScreen.Complete then
-        pcall(function()
-            task.wait(0.3)
-            NS.LoadingScreen.Complete()
-        end)
+    -- 3. เรียกทำงานตามประเภท Route
+    if selectedRoute then
+        -- แบบ Script เดี่ยว (URL ตรง)
+        if selectedRoute.url then
+            local success = runSingleScriptRoute(selectedRoute, matchedBy)
+            if success then return end
+            Log.warn("Single script execution failed for " .. selectedRoute.name)
+        
+        -- แบบ Modular System
+        elseif selectedRoute.modules then
+            Log.info("🐾 Routing -> " .. selectedRoute.name .. " (Modular System)")
+            
+            Cache.init(selectedRoute.name)
+            local newVer, needsRefresh = checkVersion()
+            if needsRefresh then Cache.clear() end
+
+            getgenv()[CONFIG.NAMESPACE] = getgenv()[CONFIG.NAMESPACE] or {}
+            local NS = getgenv()[CONFIG.NAMESPACE]
+            NS.Modules = NS.Modules or {}
+
+            local total = #CONFIG.MODULES
+            local stats = { cache = 0, http = 0, stale = 0, failed = 0 }
+
+            for i, name in ipairs(CONFIG.MODULES) do
+                local src, source = fetchModule(name, needsRefresh)
+                if src then
+                    local ok = compileAndRun(name, src)
+                    if ok then
+                        stats[source] = (stats[source] or 0) + 1
+                    else
+                        stats.failed = stats.failed + 1
+                    end
+                else
+                    stats.failed = stats.failed + 1
+                end
+            end
+
+            if newVer and stats.failed == 0 then saveVersion(newVer) end
+            Log.ok(("Done in %.2fs | Cache: %d | Http: %d | Failed: %d"):format(os.clock() - t0, stats.cache, stats.http, stats.failed))
+            return
+        end
     end
 
-    if newVer and stats.failed == 0 then
-        saveVersion(newVer)
-    end
-
-    print("")
-    healthCheck(NS)
-
-    local dt = os.clock() - t0
-    print("")
-    print("╭────────────────────────────────────────────────────────────────────────────────────╮")
-    print(("│  Done in %.2fs   💾 cache %-3d  🌐 http %-3d  ♻️  stale %-3d  ✗ failed %-3d │")
-        :format(dt, stats.cache, stats.http, stats.stale, stats.failed))
-    print("╰────────────────────────────────────────────────────────────────────────────────────╯")
-    print("")
+    Log.err("No supported route or script found for PlaceId: " .. tostring(game.PlaceId))
 end
 
--- ┌─────────────────────────────────────────────────────────────────┐
--- │  ENTRY POINT  (guarded)                                         │
--- └─────────────────────────────────────────────────────────────────┘
-
+-- รันโปรแกรมหลัก
 local ok, err = pcall(main)
 if not ok then
-    warn("[LuxuryXHUB] ✗  Fatal error: " .. tostring(err))
+    warn("[LuxuryXHUB] ✗ Fatal Error: " .. tostring(err))
 end
