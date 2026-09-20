@@ -189,7 +189,45 @@ function Farm.stopAutoRebirth()
     Farm.Threads["AutoRebirth"] = nil
 end
 
--- 4. Auto Pull Egg Loop (With Boss-Safe Hover/Fly)
+-- 4. Auto Buy Dumbbell Loop
+function Farm.startAutoBuyDumbell()
+    if Farm.Threads["AutoBuyDumbell"] then return end
+    Farm.Threads["AutoBuyDumbell"] = task.spawn(function()
+        while Config.AutoBuyDumbell do
+            for i = 1, 30 do
+                if not Config.AutoBuyDumbell then break end
+                Remotes.buyDumbell(i)
+                task.wait(0.15)
+            end
+            task.wait(2)
+        end
+        Farm.Threads["AutoBuyDumbell"] = nil
+    end)
+end
+
+function Farm.stopAutoBuyDumbell()
+    Config.AutoBuyDumbell = false
+    Farm.Threads["AutoBuyDumbell"] = nil
+end
+
+-- 5. Auto Upgrade Carry Loop
+function Farm.startAutoUpgradeCarry()
+    if Farm.Threads["AutoUpgradeCarry"] then return end
+    Farm.Threads["AutoUpgradeCarry"] = task.spawn(function()
+        while Config.AutoUpgradeCarry do
+            Remotes.upgradeCarry()
+            task.wait(2)
+        end
+        Farm.Threads["AutoUpgradeCarry"] = nil
+    end)
+end
+
+function Farm.stopAutoUpgradeCarry()
+    Config.AutoUpgradeCarry = false
+    Farm.Threads["AutoUpgradeCarry"] = nil
+end
+
+-- 6. Auto Pull Egg Loop (With Boss-Safe Hover/Fly)
 function Farm.startAutoPullEgg()
     if Farm.Threads["AutoPullEgg"] then return end
     Farm.Threads["AutoPullEgg"] = task.spawn(function()

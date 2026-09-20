@@ -88,4 +88,10 @@ function Remotes.upgradeCarry()
     return Remotes.fireEvent("Upgrade Carry Limit")
 end
 
+-- 9. Buy Dumbbell
+function Remotes.buyDumbell(nameOrIndex)
+    local dumbellId = typeof(nameOrIndex) == "number" and ("Dumbell_" .. nameOrIndex) or tostring(nameOrIndex)
+    return Remotes.fireEvent("Buy Dumbell", dumbellId)
+end
+
 return Remotes

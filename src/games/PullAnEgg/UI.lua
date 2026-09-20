@@ -370,6 +370,16 @@ function UI.build()
         if s then Farm.startAutoRebirth() else Farm.stopAutoRebirth() end
     end)
 
+    createToggle(farmPage, "💪 Auto Buy Dumbbells (Upgrades)", Config.AutoBuyDumbell, function(s)
+        Config.AutoBuyDumbell = s
+        if s then Farm.startAutoBuyDumbell() else Farm.stopAutoBuyDumbell() end
+    end)
+
+    createToggle(farmPage, "🎒 Auto Upgrade Carry Limit", Config.AutoUpgradeCarry, function(s)
+        Config.AutoUpgradeCarry = s
+        if s then Farm.startAutoUpgradeCarry() else Farm.stopAutoUpgradeCarry() end
+    end)
+
     createToggle(farmPage, "Auto Pull Egg (Target Tier)", Config.AutoPullEgg, function(s)
         Config.AutoPullEgg = s
         if s then Farm.startAutoPullEgg() else Farm.stopAutoPullEgg() end

@@ -52,6 +52,9 @@ local Config = {
     AutoRebirth     = false,
     RebirthInterval = 2,
 
+    AutoBuyDumbell  = false,
+    AutoUpgradeCarry= false,
+
     AutoPullEgg     = false,
     TargetEggTier   = "Celestial",
     FlyHeight       = 16,
@@ -125,6 +128,11 @@ function Remotes.invoke(name, ...)
         end
     end
     return nil
+end
+
+function Remotes.buyDumbell(nameOrIndex)
+    local dumbellId = typeof(nameOrIndex) == "number" and ("Dumbell_" .. nameOrIndex) or tostring(nameOrIndex)
+    return Remotes.fire("Buy Dumbell", dumbellId)
 end
 
 -- ── 3. Farm & Movement Engine ───────────────────────────────────────
@@ -283,6 +291,42 @@ end
 function Farm.stopAutoRebirth()
     Config.AutoRebirth = false
     Farm.Threads["AutoRebirth"] = nil
+end
+
+function Farm.startAutoBuyDumbell()
+    if Farm.Threads["AutoBuyDumbell"] then return end
+    Farm.Threads["AutoBuyDumbell"] = task.spawn(function()
+        while Runtime.Running and Config.AutoBuyDumbell do
+            for i = 1, 30 do
+                if not Config.AutoBuyDumbell then break end
+                Remotes.buyDumbell(i)
+                task.wait(0.15)
+            end
+            task.wait(2)
+        end
+        Farm.Threads["AutoBuyDumbell"] = nil
+    end)
+end
+
+function Farm.stopAutoBuyDumbell()
+    Config.AutoBuyDumbell = false
+    Farm.Threads["AutoBuyDumbell"] = nil
+end
+
+function Farm.startAutoUpgradeCarry()
+    if Farm.Threads["AutoUpgradeCarry"] then return end
+    Farm.Threads["AutoUpgradeCarry"] = task.spawn(function()
+        while Runtime.Running and Config.AutoUpgradeCarry do
+            Remotes.fire("Upgrade Carry Limit")
+            task.wait(2)
+        end
+        Farm.Threads["AutoUpgradeCarry"] = nil
+    end)
+end
+
+function Farm.stopAutoUpgradeCarry()
+    Config.AutoUpgradeCarry = false
+    Farm.Threads["AutoUpgradeCarry"] = nil
 end
 
 function Farm.startAutoPullEgg()
@@ -770,6 +814,16 @@ local function buildUI()
         if s then Farm.startAutoRebirth() else Farm.stopAutoRebirth() end
     end)
 
+    createToggle(farmPage, "💪 Auto Buy Dumbbells (Upgrades)", Config.AutoBuyDumbell, function(s)
+        Config.AutoBuyDumbell = s
+        if s then Farm.startAutoBuyDumbell() else Farm.stopAutoBuyDumbell() end
+    end)
+
+    createToggle(farmPage, "🎒 Auto Upgrade Carry Limit", Config.AutoUpgradeCarry, function(s)
+        Config.AutoUpgradeCarry = s
+        if s then Farm.startAutoUpgradeCarry() else Farm.stopAutoUpgradeCarry() end
+    end)
+
     createToggle(farmPage, "Auto Pull Egg (Target Tier)", Config.AutoPullEgg, function(s)
         Config.AutoPullEgg = s
         if s then Farm.startAutoPullEgg() else Farm.stopAutoPullEgg() end
@@ -874,6 +928,8 @@ function Runtime.Unload()
     Config.AutoTrain = false
     Config.AutoSell = false
     Config.AutoRebirth = false
+    Config.AutoBuyDumbell = false
+    Config.AutoUpgradeCarry = false
     Config.AutoPullEgg = false
 
     -- Stop all threads

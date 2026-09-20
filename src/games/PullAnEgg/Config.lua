@@ -18,6 +18,9 @@ local Config = {
     AutoRebirth     = false,
     RebirthInterval = 2,
 
+    AutoBuyDumbell  = false,
+    AutoUpgradeCarry= false,
+
     AutoPullEgg     = false,
     TargetEggTier   = "Celestial", -- Default target tier
     FlyHeight       = 16,          -- Safe height above egg to dodge boss attacks
