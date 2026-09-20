@@ -18,7 +18,7 @@ local CONFIG = {
     FORCE_REFRESH  = false,
     MAX_RETRIES    = 3,
 
-    -- โมดูลสำหรับ Main System (จะรันเมื่อเกมตรงกับ Default หรือ Main Route)
+    -- โมดูลสำหรับ Main System
     MODULES = {
         "LoadingScreen","Config","Services","State","Utils","Webhook",
         "Stability","Interaction","Movement","Plot","ESP","Farm","Rebirth","UI","Bootstrap",
@@ -32,7 +32,6 @@ local CONFIG = {
     NAMESPACE = "EggsESP",
 
     -- ── Multi-Game Routes ─────────────────────────────────────────
-    -- ตรวจสอบทั้ง PlaceId และ GameId (รองรับทั้งตัวเลข และ String กันเหนียว)
     GAME_ROUTES = {
         {
             name     = "Pull An Egg",
@@ -41,11 +40,10 @@ local CONFIG = {
             gameIds  = { 10649255304 },
         },
         {
-            name     = "Ride A Pet",
-            isDefault = true, -- กำหนดให้เป็นเกมหลักหากไม่ตรงกับเกมอื่น
-            modules  = true,  -- ใช้ระบบแยกโมดูล
+            name      = "Ride A Pet",
+            isDefault = true, -- หากไม่ตรงกับเกมอื่น ให้ใช้ระบบโมดูลของเกมนี้เป็นหลัก
+            modules   = true,
         },
-        -- ตัวอย่างการเพิ่มเกมใหม่:
         -- {
         --     name     = "My Other Game",
         --     url      = "https://raw.githubusercontent.com/.../scripts/other_game.lua",
@@ -110,7 +108,7 @@ local function httpGet(url)
     return nil
 end
 
--- ตัดลบ BOM ออกกันภาษา Lua อ่านแล้วเจอ error syntax
+-- ตัดลบ UTF-8 BOM กันภาษา Lua อ่านสคริปต์แล้วเกิด Syntax Error
 local function stripBOM(src)
     if src and src:sub(1, 3) == "\239\187\191" then
         return src:sub(4)
@@ -247,7 +245,8 @@ local function compileAndRun(name, src)
         Log.err("Source code invalid/empty: " .. name)
         return false
     end
-    local chunk, compileErr = loadstring(src, "@LuxuryXHUB/" .. name)
+    local safeChunkName = "@LuxuryXHUB/" .. name:gsub("[%s%c%p]", "_")
+    local chunk, compileErr = loadstring(src, safeChunkName)
     if not chunk then
         Log.err("Compile Error [" .. name .. "]: " .. tostring(compileErr))
         return false
@@ -270,7 +269,10 @@ local function runSingleScriptRoute(route, matchedBy)
     end
 
     src = stripBOM(src)
-    local fn, loadErr = loadstring(src, "@" .. route.name)
+
+    -- แปลงชื่อเป็น safeChunkName ป้องกันช่องว่างและอักขระพิเศษทำพิษตอน loadstring
+    local safeChunkName = "@" .. route.name:gsub("[%s%c%p]", "_")
+    local fn, loadErr = loadstring(src, safeChunkName)
     if not fn then
         Log.err("Compile error in " .. route.name .. ": " .. tostring(loadErr))
         return false
@@ -298,7 +300,7 @@ local function main()
         return
     end
 
-    -- รอให้ ID ของเกมถูกโหลดจนเสร็จป้องกันการแมตช์พลาด
+    -- รอให้ ID ของเกมถูกโหลดเสร็จสิ้น
     waitForGameLoaded()
 
     Log.info("🔍 Checking Game... PlaceId: " .. tostring(game.PlaceId) .. " | GameId: " .. tostring(game.GameId))
@@ -316,7 +318,7 @@ local function main()
         end
     end
 
-    -- 2. ถ้าไม่เจอ Route ให้ใช้ Default Route (ถ้ามี)
+    -- 2. ถ้าไม่เจอ ให้ใข้ Default Route (ถ้ามี)
     if not selectedRoute then
         for _, route in ipairs(CONFIG.GAME_ROUTES) do
             if route.isDefault then
@@ -327,7 +329,7 @@ local function main()
         end
     end
 
-    -- 3. เรียกทำงานตามประเภท Route
+    -- 3. เริ่มรันตามประเภทของ Route
     if selectedRoute then
         -- แบบ Script เดี่ยว (URL ตรง)
         if selectedRoute.url then
