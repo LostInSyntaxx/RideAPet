@@ -65,6 +65,10 @@ local Config = {
     -- Universal
     AntiAFK         = true,
     LowGraphics     = false,
+    SpeedBoost      = false,
+    WalkSpeed       = 100,
+    JumpPower       = 80,
+
 
     TIERS = {
         "Celestial",
@@ -937,6 +941,12 @@ local function buildUI()
         Universal.serverHop()
     end)
 
+    -- Speed Boost toggle
+    createToggle(uniPage, "⚡ Speed Boost (WalkSpeed " .. Config.WalkSpeed .. ")", Config.SpeedBoost, function(s)
+        Config.SpeedBoost = s
+        Universal.setSpeed(s)
+    end)
+
     screenGui.Parent = parent
     toggleGui.Parent = parent
     table.insert(Runtime.Instances, screenGui)
@@ -973,6 +983,52 @@ do
             pcall(function() _afkConn:Disconnect() end)
             _afkConn = nil
         end
+    end
+
+    -- Speed Boost ---------------------------------------------------------
+    local _speedConn = nil
+    local function applySpeed()
+        pcall(function()
+            local char = LocalPlayer.Character
+            if not char then return end
+            local hum = char:FindFirstChildWhichIsA("Humanoid")
+            if hum then
+                hum.WalkSpeed = Config.WalkSpeed
+                hum.JumpPower = Config.JumpPower
+            end
+        end)
+    end
+
+    function Universal.setSpeed(enable)
+        -- Disconnect previous respawn watcher
+        if _speedConn then
+            pcall(function() _speedConn:Disconnect() end)
+            _speedConn = nil
+        end
+        if enable then
+            applySpeed()
+            -- Re-apply every time character respawns
+            _speedConn = LocalPlayer.CharacterAdded:Connect(function(char)
+                task.wait(0.5)  -- wait for Humanoid to load
+                applySpeed()
+            end)
+            Runtime.trackConnection(_speedConn)
+        else
+            -- Restore default Roblox speed
+            pcall(function()
+                local char = LocalPlayer.Character
+                if not char then return end
+                local hum = char:FindFirstChildWhichIsA("Humanoid")
+                if hum then
+                    hum.WalkSpeed = 16
+                    hum.JumpPower = 50
+                end
+            end)
+        end
+    end
+
+    function Universal.stopSpeed()
+        Universal.setSpeed(false)
     end
 
     -- Low Graphics -------------------------------------------------------
@@ -1101,6 +1157,7 @@ function Runtime.Unload()
 
     -- Universal cleanup
     Universal.stopAntiAFK()
+    Universal.stopSpeed()
     if Config.LowGraphics then
         Universal.setLowGraphics(false)
     end
