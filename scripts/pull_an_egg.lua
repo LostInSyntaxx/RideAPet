@@ -1,4 +1,4 @@
---[[
+﻿--[[
 ╭────────────────────────────────────────────────────────────────────────────────────╮
 │  ##       ##     ## ##     ## ##     ## ########  ##    ##                         │
 │  ##       ##     ##  ##   ##  ##     ## ##     ##  ##  ##                          │
@@ -492,467 +492,596 @@ local function getGuiParent()
     return LocalPlayer:WaitForChild("PlayerGui")
 end
 
+-- ── Design Tokens ──────────────────────────────────────────────────
+local C = {
+    BG0       = Color3.fromRGB(17,  17,  17),
+    BG1       = Color3.fromRGB(31,  31,  31),
+    BG2       = Color3.fromRGB(36,  36,  36),
+    BG3       = Color3.fromRGB(26,  26,  26),
+    Border0   = Color3.fromRGB(50,  50,  50),
+    Border1   = Color3.fromRGB(45,  45,  45),
+    Border2   = Color3.fromRGB(38,  38,  38),
+    Gold      = Color3.fromRGB(255, 185,  50),
+    GoldDim   = Color3.fromRGB(60,  42,   8),
+    GoldText  = Color3.fromRGB(255, 200,  80),
+    Green     = Color3.fromRGB( 52, 211, 153),
+    GreenDim  = Color3.fromRGB( 15,  60,  40),
+    Red       = Color3.fromRGB(239,  68,  68),
+    Blue      = Color3.fromRGB( 59, 130, 246),
+    Purple    = Color3.fromRGB(139,  92, 246),
+    TextPri   = Color3.fromRGB(230, 230, 230),
+    TextSec   = Color3.fromRGB(130, 130, 130),
+    TextMuted = Color3.fromRGB( 70,  70,  70),
+}
+
+local TW = game:GetService("TweenService")
+local function tw(obj, props, t)
+    TW:Create(obj, TweenInfo.new(t or 0.14, Enum.EasingStyle.Quad), props):Play()
+end
+
+local function corner(p, r) local c=Instance.new("UICorner") c.CornerRadius=r or UDim.new(0,12) c.Parent=p return c end
+local function stroke(p, col, th)
+    local s=Instance.new("UIStroke") s.Color=col or Color3.fromRGB(45,45,45)
+    s.Thickness=th or 1 s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=p return s
+end
+local function list(p, pad, dir)
+    local l=Instance.new("UIListLayout") l.Padding=UDim.new(0,pad or 8)
+    l.SortOrder=Enum.SortOrder.LayoutOrder l.FillDirection=dir or Enum.FillDirection.Vertical l.Parent=p return l
+end
+local function pad(p, x, y)
+    local u=Instance.new("UIPadding") u.PaddingLeft=UDim.new(0,x or 12) u.PaddingRight=UDim.new(0,x or 12)
+    u.PaddingTop=UDim.new(0,y or 10) u.PaddingBottom=UDim.new(0,y or 10) u.Parent=p return u
+end
+
 local function buildUI()
     local parent = getGuiParent()
-    local oldMain = parent:FindFirstChild("LuxuryXHUB_PullAnEgg")
-    if oldMain then oldMain:Destroy() end
-    local oldToggle = parent:FindFirstChild("LuxuryXHUB_FloatingBtn")
-    if oldToggle then oldToggle:Destroy() end
+    local old1 = parent:FindFirstChild("LuxuryXHUB_PullAnEgg")
+    if old1 then old1:Destroy() end
+    local old2 = parent:FindFirstChild("LuxuryXHUB_FloatingBtn")
+    if old2 then old2:Destroy() end
 
+    -- ── ScreenGuis ───────────────────────────────────────────────
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "LuxuryXHUB_PullAnEgg"
     screenGui.ResetOnSpawn = false
     screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screenGui.DisplayOrder = 999
 
-    local main = Instance.new("Frame")
-    main.Name = "MainFrame"
-    main.Size = UDim2.new(0, 580, 0, 390)
-    main.Position = UDim2.new(0.5, -290, 0.5, -195)
-    main.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
-    main.BorderSizePixel = 0
-    main.ClipsDescendants = true
-    main.Parent = screenGui
-
-    local mainCorner = Instance.new("UICorner")
-    mainCorner.CornerRadius = UDim.new(0, 12)
-    mainCorner.Parent = main
-
-    local mainStroke = Instance.new("UIStroke")
-    mainStroke.Color = Color3.fromRGB(255, 170, 0)
-    mainStroke.Transparency = 0.6
-    mainStroke.Thickness = 1.5
-    mainStroke.Parent = main
-
-    -- ── Floating Open/Close Toggle Button ────────────────────────────
     local toggleGui = Instance.new("ScreenGui")
     toggleGui.Name = "LuxuryXHUB_FloatingBtn"
     toggleGui.ResetOnSpawn = false
     toggleGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    toggleGui.DisplayOrder = 1000
+
+    -- ── Floating Button ──────────────────────────────────────────
+    local floatOuter = Instance.new("Frame")
+    floatOuter.Size = UDim2.new(0, 52, 0, 52)
+    floatOuter.Position = UDim2.new(0, 16, 0.5, -26)
+    floatOuter.BackgroundColor3 = C.BG1
+    floatOuter.BorderSizePixel = 0
+    floatOuter.Parent = toggleGui
+    corner(floatOuter, UDim.new(0, 14))
+    stroke(floatOuter, C.Gold, 1.5)
 
     local floatBtn = Instance.new("TextButton")
     floatBtn.Name = "OpenButton"
-    floatBtn.Size = UDim2.new(0, 50, 0, 50)
-    floatBtn.Position = UDim2.new(0, 20, 0.5, -25)
-    floatBtn.BackgroundColor3 = Color3.fromRGB(20, 22, 32)
+    floatBtn.Size = UDim2.new(1, 0, 1, 0)
+    floatBtn.BackgroundTransparency = 1
     floatBtn.Text = "🐾"
-    floatBtn.TextSize = 22
-    floatBtn.Parent = toggleGui
+    floatBtn.TextSize = 24
+    floatBtn.Font = Enum.Font.GothamBold
+    floatBtn.Parent = floatOuter
 
-    local floatCorner = Instance.new("UICorner")
-    floatCorner.CornerRadius = UDim.new(0, 25)
-    floatCorner.Parent = floatBtn
-
-    local floatStroke = Instance.new("UIStroke")
-    floatStroke.Color = Color3.fromRGB(255, 170, 0)
-    floatStroke.Thickness = 2
-    floatStroke.Parent = floatBtn
-
-    -- Toggle UI visibility helper
-    local function toggleUI()
-        main.Visible = not main.Visible
-        if main.Visible then
-            floatBtn.BackgroundColor3 = Color3.fromRGB(255, 170, 0)
-            floatBtn.TextColor3 = Color3.fromRGB(16, 18, 26)
-        else
-            floatBtn.BackgroundColor3 = Color3.fromRGB(20, 22, 32)
-            floatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    local floatDragging, floatDragInput, floatStart, floatPos
+    floatOuter.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            floatDragging = true; floatStart = i.Position; floatPos = floatOuter.Position
+            i.Changed:Connect(function() if i.UserInputState == Enum.UserInputState.End then floatDragging = false end end)
         end
+    end)
+    floatOuter.InputChanged:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then floatDragInput = i end
+    end)
+
+    -- ── Main Window Shell ─────────────────────────────────────────
+    local shell = Instance.new("Frame")
+    shell.Name = "MainFrame"
+    shell.Size = UDim2.new(0, 660, 0, 460)
+    shell.Position = UDim2.new(0.5, -330, 0.5, -230)
+    shell.BackgroundColor3 = C.BG0
+    shell.BorderSizePixel = 0
+    shell.ClipsDescendants = true
+    shell.Parent = screenGui
+    corner(shell, UDim.new(0, 16))
+    stroke(shell, C.Border0, 1)
+
+    -- Gold top accent stripe
+    local stripe = Instance.new("Frame")
+    stripe.Size = UDim2.new(1, 0, 0, 2)
+    stripe.BackgroundColor3 = C.Gold
+    stripe.BorderSizePixel = 0
+    stripe.ZIndex = 3
+    stripe.Parent = shell
+
+    -- Inner surface
+    local main = Instance.new("Frame")
+    main.Size = UDim2.new(1, -2, 1, -2)
+    main.Position = UDim2.new(0, 1, 0, 1)
+    main.BackgroundColor3 = C.BG1
+    main.BorderSizePixel = 0
+    main.ClipsDescendants = true
+    main.Parent = shell
+    corner(main, UDim.new(0, 15))
+
+    -- ── Title Bar ─────────────────────────────────────────────────
+    local titleBar = Instance.new("Frame")
+    titleBar.Name = "TitleBar"
+    titleBar.Size = UDim2.new(1, 0, 0, 56)
+    titleBar.BackgroundColor3 = C.BG0
+    titleBar.BorderSizePixel = 0
+    titleBar.Parent = main
+
+    -- Logo icon
+    local logoBox = Instance.new("Frame")
+    logoBox.Position = UDim2.new(0, 14, 0.5, -16)
+    logoBox.Size = UDim2.new(0, 32, 0, 32)
+    logoBox.BackgroundColor3 = C.GoldDim
+    logoBox.BorderSizePixel = 0
+    logoBox.Parent = titleBar
+    corner(logoBox, UDim.new(0, 8))
+
+    local logoTxt = Instance.new("TextLabel")
+    logoTxt.Size = UDim2.new(1, 0, 1, 0)
+    logoTxt.BackgroundTransparency = 1
+    logoTxt.Text = "🐾"
+    logoTxt.TextSize = 16
+    logoTxt.Font = Enum.Font.GothamBold
+    logoTxt.Parent = logoBox
+
+    -- Title + subtitle
+    local titleLbl = Instance.new("TextLabel")
+    titleLbl.Position = UDim2.new(0, 54, 0, 10)
+    titleLbl.Size = UDim2.new(0, 200, 0, 20)
+    titleLbl.BackgroundTransparency = 1
+    titleLbl.Text = "LuxuryXHUB"
+    titleLbl.TextColor3 = C.GoldText
+    titleLbl.Font = Enum.Font.GothamBold
+    titleLbl.TextSize = 16
+    titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+    titleLbl.Parent = titleBar
+
+    local subLbl = Instance.new("TextLabel")
+    subLbl.Position = UDim2.new(0, 54, 0, 32)
+    subLbl.Size = UDim2.new(0, 240, 0, 14)
+    subLbl.BackgroundTransparency = 1
+    subLbl.Text = "Pull An Egg  ·  Automation Suite"
+    subLbl.TextColor3 = C.TextMuted
+    subLbl.Font = Enum.Font.Gotham
+    subLbl.TextSize = 10
+    subLbl.TextXAlignment = Enum.TextXAlignment.Left
+    subLbl.Parent = titleBar
+
+    -- Window control buttons
+    local function winBtn(col, sym, xOff)
+        local b = Instance.new("TextButton")
+        b.Position = UDim2.new(1, xOff, 0.5, -13)
+        b.Size = UDim2.new(0, 26, 0, 26)
+        b.BackgroundColor3 = col
+        b.Text = sym
+        b.TextColor3 = Color3.fromRGB(255,255,255)
+        b.TextSize = 11
+        b.Font = Enum.Font.GothamBold
+        b.AutoButtonColor = false
+        b.Parent = titleBar
+        corner(b, UDim.new(0, 6))
+        b.MouseEnter:Connect(function() tw(b, {BackgroundTransparency=0.3}) end)
+        b.MouseLeave:Connect(function() tw(b, {BackgroundTransparency=0}) end)
+        return b
+    end
+    local closeBtn = winBtn(C.Red,                    "✕", -38)
+    local minBtn   = winBtn(Color3.fromRGB(55,55,55), "─", -72)
+
+    -- Toggle + drag
+    local function toggleUI()
+        shell.Visible = not shell.Visible
+        tw(floatOuter, {BackgroundColor3 = shell.Visible and C.GoldDim or C.BG1})
+    end
+    floatBtn.MouseButton1Click:Connect(toggleUI)
+    closeBtn.MouseButton1Click:Connect(function() shell.Visible = false tw(floatOuter,{BackgroundColor3=C.BG1}) end)
+    minBtn.MouseButton1Click:Connect(function()   shell.Visible = false tw(floatOuter,{BackgroundColor3=C.BG1}) end)
+
+    local kc = UserInputService.InputBegan:Connect(function(i, gpe)
+        if not gpe and (i.KeyCode == Enum.KeyCode.LeftControl or i.KeyCode == Enum.KeyCode.RightControl) then toggleUI() end
+    end)
+    Runtime.trackConnection(kc)
+
+    local dragging, dragInput, dragStart, startPos
+    titleBar.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging=true dragging=true dragStart=i.Position startPos=shell.Position
+            i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then dragging=false end end)
+        end
+    end)
+    titleBar.InputChanged:Connect(function(i)
+        if i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch then dragInput=i end
+    end)
+    UserInputService.InputChanged:Connect(function(i)
+        if i == floatDragInput and floatDragging then
+            local d = i.Position - floatStart
+            floatOuter.Position = UDim2.new(floatPos.X.Scale, floatPos.X.Offset+d.X, floatPos.Y.Scale, floatPos.Y.Offset+d.Y)
+        end
+        if i == dragInput and dragging then
+            local d = i.Position - dragStart
+            shell.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset+d.X, startPos.Y.Scale, startPos.Y.Offset+d.Y)
+        end
+    end)
+
+    -- Title bar bottom rule
+    local tbRule = Instance.new("Frame")
+    tbRule.Position = UDim2.new(0,0,1,-1)
+    tbRule.Size = UDim2.new(1,0,0,1)
+    tbRule.BackgroundColor3 = C.Border0
+    tbRule.BorderSizePixel = 0
+    tbRule.Parent = titleBar
+
+    -- ── Ribbon Tab Bar ────────────────────────────────────────────
+    local ribbon = Instance.new("Frame")
+    ribbon.Name = "Ribbon"
+    ribbon.Position = UDim2.new(0, 0, 0, 56)
+    ribbon.Size = UDim2.new(1, 0, 0, 46)
+    ribbon.BackgroundColor3 = C.BG0
+    ribbon.BorderSizePixel = 0
+    ribbon.Parent = main
+
+    local ribbonRow = Instance.new("Frame")
+    ribbonRow.Position = UDim2.new(0, 14, 0, 4)
+    ribbonRow.Size = UDim2.new(1, -14, 1, -4)
+    ribbonRow.BackgroundTransparency = 1
+    ribbonRow.Parent = ribbon
+    list(ribbonRow, 4, Enum.FillDirection.Horizontal)
+
+    local ribbonRule = Instance.new("Frame")
+    ribbonRule.Position = UDim2.new(0,0,1,-1)
+    ribbonRule.Size = UDim2.new(1,0,0,1)
+    ribbonRule.BackgroundColor3 = C.Border0
+    ribbonRule.BorderSizePixel = 0
+    ribbonRule.Parent = ribbon
+
+    -- ── Content Area ──────────────────────────────────────────────
+    local contentArea = Instance.new("Frame")
+    contentArea.Position = UDim2.new(0, 0, 0, 102)
+    contentArea.Size = UDim2.new(1, 0, 1, -102)
+    contentArea.BackgroundTransparency = 1
+    contentArea.Parent = main
+
+    -- ─────────────────────────────────────────────────────────────
+    --  COMPONENT BUILDERS
+    -- ─────────────────────────────────────────────────────────────
+
+    -- Outer card (BG2) + inner card (BG3) nested
+    local function outerCard(parent, h)
+        local o = Instance.new("Frame")
+        o.Size = UDim2.new(1, 0, 0, h or 66)
+        o.BackgroundColor3 = C.BG2
+        o.BorderSizePixel = 0
+        o.Parent = parent
+        corner(o, UDim.new(0, 12))
+        stroke(o, C.Border1, 1)
+        return o
     end
 
-    floatBtn.MouseButton1Click:Connect(toggleUI)
+    local function innerCard(outer, marginX, marginY)
+        local mx, my = marginX or 5, marginY or 5
+        local i = Instance.new("Frame")
+        i.Size = UDim2.new(1, -mx*2, 1, -my*2)
+        i.Position = UDim2.new(0, mx, 0, my)
+        i.BackgroundColor3 = C.BG3
+        i.BorderSizePixel = 0
+        i.Parent = outer
+        corner(i, UDim.new(0, 8))
+        stroke(i, C.Border2, 1)
+        return i
+    end
 
-    -- Floating Button Draggable
-    local floatDragging, floatDragInput, floatStart, floatPos
-    floatBtn.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            floatDragging = true
-            floatStart = input.Position
-            floatPos = floatBtn.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then floatDragging = false end
-            end)
-        end
-    end)
+    -- Toggle with pill slider + indicator dot
+    local function createToggle(page, labelText, defaultState, onToggle)
+        local o = outerCard(page, 62)
+        local inn = innerCard(o)
 
-    floatBtn.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            floatDragInput = input
-        end
-    end)
+        local dot = Instance.new("Frame")
+        dot.Position = UDim2.new(0, 12, 0.5, -4)
+        dot.Size = UDim2.new(0, 8, 0, 8)
+        dot.BackgroundColor3 = defaultState and C.Green or C.TextMuted
+        dot.BorderSizePixel = 0
+        dot.Parent = inn
+        corner(dot, UDim.new(1, 0))
 
-    UserInputService.InputChanged:Connect(function(input)
-        if input == floatDragInput and floatDragging then
-            local delta = input.Position - floatStart
-            floatBtn.Position = UDim2.new(floatPos.X.Scale, floatPos.X.Offset + delta.X, floatPos.Y.Scale, floatPos.Y.Offset + delta.Y)
-        end
-    end)
+        local lbl = Instance.new("TextLabel")
+        lbl.Position = UDim2.new(0, 28, 0, 0)
+        lbl.Size = UDim2.new(1, -96, 1, 0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = labelText
+        lbl.TextColor3 = C.TextPri
+        lbl.Font = Enum.Font.GothamMedium
+        lbl.TextSize = 13
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        lbl.TextTruncate = Enum.TextTruncate.AtEnd
+        lbl.Parent = inn
 
-    -- Keyboard shortcut (LeftControl or RightControl to toggle UI)
-    local keyConn = UserInputService.InputBegan:Connect(function(input, gpe)
-        if not gpe and (input.KeyCode == Enum.KeyCode.LeftControl or input.KeyCode == Enum.KeyCode.RightControl) then
-            toggleUI()
-        end
-    end)
-    Runtime.trackConnection(keyConn)
+        local track = Instance.new("Frame")
+        track.Position = UDim2.new(1, -60, 0.5, -12)
+        track.Size = UDim2.new(0, 48, 0, 24)
+        track.BackgroundColor3 = defaultState and C.GreenDim or C.BG0
+        track.BorderSizePixel = 0
+        track.Parent = inn
+        corner(track, UDim.new(1, 0))
+        local trackS = stroke(track, defaultState and C.Green or C.Border1, 1)
 
-    -- ── Header ───────────────────────────────────────────────────────
-    local header = Instance.new("Frame")
-    header.Size = UDim2.new(1, 0, 0, 48)
-    header.BackgroundColor3 = Color3.fromRGB(22, 25, 36)
-    header.BorderSizePixel = 0
-    header.Parent = main
+        local knob = Instance.new("Frame")
+        knob.Size = UDim2.new(0, 16, 0, 16)
+        knob.Position = defaultState and UDim2.new(1, -20, 0.5, -8) or UDim2.new(0, 4, 0.5, -8)
+        knob.BackgroundColor3 = defaultState and C.Green or C.TextMuted
+        knob.BorderSizePixel = 0
+        knob.Parent = track
+        corner(knob, UDim.new(1, 0))
 
-    local headerCorner = Instance.new("UICorner")
-    headerCorner.CornerRadius = UDim.new(0, 12)
-    headerCorner.Parent = header
+        local hit = Instance.new("TextButton")
+        hit.Size = UDim2.new(1, 0, 1, 0)
+        hit.BackgroundTransparency = 1
+        hit.Text = ""
+        hit.Parent = inn
 
-    local title = Instance.new("TextLabel")
-    title.Position = UDim2.new(0, 16, 0, 0)
-    title.Size = UDim2.new(0, 200, 1, 0)
-    title.BackgroundTransparency = 1
-    title.Text = "🐾 LuxuryXHUB"
-    title.TextColor3 = Color3.fromRGB(255, 180, 0)
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 17
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.Parent = header
+        local state = defaultState
+        hit.MouseButton1Click:Connect(function()
+            state = not state
+            tw(knob, {Position = state and UDim2.new(1,-20,0.5,-8) or UDim2.new(0,4,0.5,-8), BackgroundColor3 = state and C.Green or C.TextMuted})
+            tw(track, {BackgroundColor3 = state and C.GreenDim or C.BG0})
+            tw(trackS, {Color = state and C.Green or C.Border1})
+            tw(dot,   {BackgroundColor3 = state and C.Green or C.TextMuted})
+            if onToggle then onToggle(state) end
+        end)
+        hit.MouseEnter:Connect(function() tw(o, {BackgroundColor3 = Color3.fromRGB(42,42,42)}) end)
+        hit.MouseLeave:Connect(function() tw(o, {BackgroundColor3 = C.BG2}) end)
+        return o
+    end
 
-    local badge = Instance.new("TextLabel")
-    badge.Position = UDim2.new(0, 175, 0.5, -10)
-    badge.Size = UDim2.new(0, 95, 0, 20)
-    badge.BackgroundColor3 = Color3.fromRGB(35, 40, 58)
-    badge.Text = "Pull An Egg"
-    badge.TextColor3 = Color3.fromRGB(200, 220, 255)
-    badge.Font = Enum.Font.GothamMedium
-    badge.TextSize = 11
-    badge.Parent = header
+    -- Action button with left accent bar + hover
+    local function createButton(page, labelText, accentCol, onClick)
+        local o = outerCard(page, 52)
+        local inn = Instance.new("TextButton")
+        inn.Size = UDim2.new(1,-10,1,-10)
+        inn.Position = UDim2.new(0,5,0,5)
+        inn.BackgroundColor3 = C.BG3
+        inn.Text = ""
+        inn.AutoButtonColor = false
+        inn.BorderSizePixel = 0
+        inn.Parent = o
+        corner(inn, UDim.new(0, 8))
+        stroke(inn, C.Border2, 1)
 
-    local badgeCorner = Instance.new("UICorner")
-    badgeCorner.CornerRadius = UDim.new(0, 6)
-    badgeCorner.Parent = badge
+        local bar = Instance.new("Frame")
+        bar.Size = UDim2.new(0, 3, 0.55, 0)
+        bar.Position = UDim2.new(0, 10, 0.225, 0)
+        bar.BackgroundColor3 = accentCol or C.Gold
+        bar.BorderSizePixel = 0
+        bar.Parent = inn
+        corner(bar, UDim.new(1, 0))
 
-    -- Minimize/Close Button
-    local closeBtn = Instance.new("TextButton")
-    closeBtn.Position = UDim2.new(1, -38, 0.5, -14)
-    closeBtn.Size = UDim2.new(0, 28, 0, 28)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
-    closeBtn.Text = "✕"
-    closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.TextSize = 13
-    closeBtn.Parent = header
+        local lbl = Instance.new("TextLabel")
+        lbl.Position = UDim2.new(0, 22, 0, 0)
+        lbl.Size = UDim2.new(1, -40, 1, 0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = labelText
+        lbl.TextColor3 = C.TextPri
+        lbl.Font = Enum.Font.GothamMedium
+        lbl.TextSize = 13
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        lbl.TextTruncate = Enum.TextTruncate.AtEnd
+        lbl.Parent = inn
 
-    local closeCorner = Instance.new("UICorner")
-    closeCorner.CornerRadius = UDim.new(0, 6)
-    closeCorner.Parent = closeBtn
+        local arr = Instance.new("TextLabel")
+        arr.Position = UDim2.new(1, -26, 0, 0)
+        arr.Size = UDim2.new(0, 18, 1, 0)
+        arr.BackgroundTransparency = 1
+        arr.Text = "›"
+        arr.TextColor3 = C.TextMuted
+        arr.Font = Enum.Font.GothamBold
+        arr.TextSize = 18
+        arr.Parent = inn
 
-    closeBtn.MouseButton1Click:Connect(function()
-        main.Visible = false
-        floatBtn.BackgroundColor3 = Color3.fromRGB(20, 22, 32)
-        floatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    end)
+        inn.MouseEnter:Connect(function()
+            tw(inn, {BackgroundColor3 = Color3.fromRGB(38,38,38)})
+            tw(lbl, {TextColor3 = accentCol or C.Gold})
+            tw(arr, {TextColor3 = accentCol or C.Gold})
+        end)
+        inn.MouseLeave:Connect(function()
+            tw(inn, {BackgroundColor3 = C.BG3})
+            tw(lbl, {TextColor3 = C.TextPri})
+            tw(arr, {TextColor3 = C.TextMuted})
+        end)
+        inn.MouseButton1Click:Connect(function() if onClick then onClick() end end)
+        return o
+    end
 
-    -- Draggable MainFrame
-    local dragging, dragInput, dragStart, startPos
-    header.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            startPos = main.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then dragging = false end
-            end)
-        end
-    end)
+    -- Section divider label
+    local function sectionLabel(page, text)
+        local row = Instance.new("Frame")
+        row.Size = UDim2.new(1, 0, 0, 26)
+        row.BackgroundTransparency = 1
+        row.Parent = page
 
-    header.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            dragInput = input
-        end
-    end)
+        local line = Instance.new("Frame")
+        line.Position = UDim2.new(0, 0, 0.5, 0)
+        line.Size = UDim2.new(1, 0, 0, 1)
+        line.BackgroundColor3 = C.Border1
+        line.BorderSizePixel = 0
+        line.Parent = row
 
-    UserInputService.InputChanged:Connect(function(input)
-        if input == dragInput and dragging then
-            local delta = input.Position - dragStart
-            main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
+        local bg = Instance.new("Frame")
+        bg.BackgroundColor3 = C.BG1
+        bg.BorderSizePixel = 0
+        bg.Position = UDim2.new(0, 0, 0, 4)
+        bg.Size = UDim2.new(0, #text * 7 + 20, 0, 18)
+        bg.Parent = row
 
-    -- Navigation
-    local nav = Instance.new("Frame")
-    nav.Position = UDim2.new(0, 0, 0, 48)
-    nav.Size = UDim2.new(0, 150, 1, -48)
-    nav.BackgroundColor3 = Color3.fromRGB(12, 14, 20)
-    nav.BorderSizePixel = 0
-    nav.Parent = main
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(1, 0, 1, 0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = "  " .. text
+        lbl.TextColor3 = C.TextSec
+        lbl.Font = Enum.Font.GothamBold
+        lbl.TextSize = 9
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        lbl.Parent = bg
+        return row
+    end
 
-    local content = Instance.new("Frame")
-    content.Position = UDim2.new(0, 150, 0, 48)
-    content.Size = UDim2.new(1, -150, 1, -48)
-    content.BackgroundTransparency = 1
-    content.Parent = main
-
+    -- ─────────────────────────────────────────────────────────────
+    --  TAB SYSTEM
+    -- ─────────────────────────────────────────────────────────────
     local tabs = {}
-    local tabButtons = {}
+    local tabBtns = {}
 
-    local function createTab(name, icon)
-        local tabBtn = Instance.new("TextButton")
-        tabBtn.Size = UDim2.new(1, -16, 0, 36)
-        tabBtn.Position = UDim2.new(0, 8, 0, 12 + (#tabButtons * 44))
-        tabBtn.BackgroundColor3 = (#tabButtons == 0) and Color3.fromRGB(255, 170, 0) or Color3.fromRGB(22, 25, 36)
-        tabBtn.Text = icon .. "  " .. name
-        tabBtn.TextColor3 = (#tabButtons == 0) and Color3.fromRGB(16, 18, 26) or Color3.fromRGB(220, 225, 235)
-        tabBtn.Font = Enum.Font.GothamBold
-        tabBtn.TextSize = 13
-        tabBtn.Parent = nav
+    local function createTab(name, icon, col)
+        local isFirst = (#tabBtns == 0)
+        local tabCol = col or C.Gold
 
-        local btnCorner = Instance.new("UICorner")
-        btnCorner.CornerRadius = UDim.new(0, 8)
-        btnCorner.Parent = tabBtn
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0, 0, 1, -8)
+        btn.Position = UDim2.new(0, 0, 0, 4)
+        btn.AutomaticSize = Enum.AutomaticSize.X
+        btn.BackgroundColor3 = tabCol
+        btn.BackgroundTransparency = isFirst and 0.88 or 1
+        btn.Text = ""
+        btn.AutoButtonColor = false
+        btn.Parent = ribbonRow
+        corner(btn, UDim.new(0, 8))
+
+        local bpad = Instance.new("UIPadding")
+        bpad.PaddingLeft=UDim.new(0,12) bpad.PaddingRight=UDim.new(0,12)
+        bpad.PaddingTop=UDim.new(0,4) bpad.PaddingBottom=UDim.new(0,4)
+        bpad.Parent = btn
+
+        local brow = Instance.new("Frame")
+        brow.Size = UDim2.new(1,0,1,0)
+        brow.BackgroundTransparency = 1
+        brow.Parent = btn
+        list(brow, 5, Enum.FillDirection.Horizontal)
+
+        local ic = Instance.new("TextLabel")
+        ic.Size = UDim2.new(0,16,1,0)
+        ic.BackgroundTransparency=1
+        ic.Text=icon ic.TextSize=13
+        ic.Font=Enum.Font.GothamBold
+        ic.TextColor3 = isFirst and tabCol or C.TextSec
+        ic.Parent=brow
+
+        local nm = Instance.new("TextLabel")
+        nm.Size=UDim2.new(0,0,1,0) nm.AutomaticSize=Enum.AutomaticSize.X
+        nm.BackgroundTransparency=1
+        nm.Text=name nm.Font=Enum.Font.GothamBold nm.TextSize=12
+        nm.TextColor3 = isFirst and tabCol or C.TextSec
+        nm.Parent=brow
+
+        local ind = Instance.new("Frame")
+        ind.Size = UDim2.new(isFirst and 1 or 0, 0, 0, 2)
+        ind.Position = UDim2.new(0,0,1,-2)
+        ind.BackgroundColor3 = tabCol
+        ind.BorderSizePixel=0
+        ind.Parent=btn
+        corner(ind, UDim.new(1,0))
 
         local page = Instance.new("ScrollingFrame")
-        page.Size = UDim2.new(1, -24, 1, -24)
-        page.Position = UDim2.new(0, 12, 0, 12)
-        page.BackgroundTransparency = 1
-        page.BorderSizePixel = 0
-        page.ScrollBarThickness = 4
-        page.Visible = (#tabButtons == 0)
-        page.Parent = content
+        page.Size=UDim2.new(1,0,1,0)
+        page.BackgroundTransparency=1
+        page.BorderSizePixel=0
+        page.ScrollBarThickness=3
+        page.ScrollBarImageColor3=C.Border1
+        page.CanvasSize=UDim2.new(0,0,0,0)
+        page.AutomaticCanvasSize=Enum.AutomaticSize.Y
+        page.Visible=isFirst
+        page.Parent=contentArea
+        pad(page, 14, 12)
+        list(page, 8)
 
-        local pageList = Instance.new("UIListLayout")
-        pageList.Padding = UDim.new(0, 10)
-        pageList.SortOrder = Enum.SortOrder.LayoutOrder
-        pageList.Parent = page
+        tabs[name]=page
+        table.insert(tabBtns, {Button=btn, Page=page, Name=name, Icon=ic, Label=nm, Ind=ind, Col=tabCol})
 
-        tabs[name] = page
-        table.insert(tabButtons, { Button = tabBtn, Page = page, Name = name })
-
-        tabBtn.MouseButton1Click:Connect(function()
-            for _, tb in ipairs(tabButtons) do
-                local isActive = (tb.Name == name)
-                tb.Page.Visible = isActive
-                tb.Button.BackgroundColor3 = isActive and Color3.fromRGB(255, 170, 0) or Color3.fromRGB(22, 25, 36)
-                tb.Button.TextColor3 = isActive and Color3.fromRGB(16, 18, 26) or Color3.fromRGB(220, 225, 235)
+        btn.MouseButton1Click:Connect(function()
+            for _, tb in ipairs(tabBtns) do
+                local a = (tb.Name==name)
+                tb.Page.Visible=a
+                tw(tb.Ind,   {Size=UDim2.new(a and 1 or 0,0,0,2)})
+                tw(tb.Icon,  {TextColor3 = a and tb.Col or C.TextSec})
+                tw(tb.Label, {TextColor3 = a and tb.Col or C.TextSec})
+                tw(tb.Button,{BackgroundTransparency = a and 0.88 or 1, BackgroundColor3 = a and tb.Col or Color3.new(0,0,0)})
             end
         end)
         return page
     end
 
-    local function createToggle(page, labelText, defaultState, onToggle)
-        local card = Instance.new("Frame")
-        card.Size = UDim2.new(1, -8, 0, 46)
-        card.BackgroundColor3 = Color3.fromRGB(24, 27, 39)
-        card.BorderSizePixel = 0
-        card.Parent = page
+    -- ─────────────────────────────────────────────────────────────
+    --  TAB 1 — AUTO FARM
+    -- ─────────────────────────────────────────────────────────────
+    local farmPage = createTab("Auto Farm", "🌾", C.Green)
+    sectionLabel(farmPage, "CORE AUTOMATION")
+    createToggle(farmPage, "Auto Train  —  Activate Dumbell",    Config.AutoTrain,    function(s) Config.AutoTrain=s;    if s then Farm.startAutoTrain()    else Farm.stopAutoTrain()    end end)
+    createToggle(farmPage, "Auto Sell  —  Sell All Friends",     Config.AutoSell,     function(s) Config.AutoSell=s;     if s then Farm.startAutoSell()     else Farm.stopAutoSell()     end end)
+    createToggle(farmPage, "Auto Rebirth",                       Config.AutoRebirth,  function(s) Config.AutoRebirth=s;  if s then Farm.startAutoRebirth()  else Farm.stopAutoRebirth()  end end)
+    sectionLabel(farmPage, "UPGRADES")
+    createToggle(farmPage, "💪 Auto Buy Dumbbells",              Config.AutoBuyDumbell,  function(s) Config.AutoBuyDumbell=s;  if s then Farm.startAutoBuyDumbell()  else Farm.stopAutoBuyDumbell()  end end)
+    createToggle(farmPage, "🎒 Auto Upgrade Carry Limit",        Config.AutoUpgradeCarry, function(s) Config.AutoUpgradeCarry=s; if s then Farm.startAutoUpgradeCarry() else Farm.stopAutoUpgradeCarry() end end)
+    sectionLabel(farmPage, "EGG PULLING")
+    createToggle(farmPage, "Auto Pull Egg  —  Target Tier",      Config.AutoPullEgg,  function(s) Config.AutoPullEgg=s;  if s then Farm.startAutoPullEgg()  else Farm.stopAutoPullEgg()  end end)
+    createToggle(farmPage, "🛡️ Safe Fly / Hover  —  Dodge Boss", Config.SafeHover,    function(s) Config.SafeHover=s;    if not s then Farm.setFloat(false) Farm.setNoclip(false) end end)
 
-        local cardCorner = Instance.new("UICorner")
-        cardCorner.CornerRadius = UDim.new(0, 8)
-        cardCorner.Parent = card
-
-        local label = Instance.new("TextLabel")
-        label.Position = UDim2.new(0, 14, 0, 0)
-        label.Size = UDim2.new(1, -80, 1, 0)
-        label.BackgroundTransparency = 1
-        label.Text = labelText
-        label.TextColor3 = Color3.fromRGB(240, 242, 245)
-        label.Font = Enum.Font.GothamMedium
-        label.TextSize = 13
-        label.TextXAlignment = Enum.TextXAlignment.Left
-        label.Parent = card
-
-        local toggleBtn = Instance.new("TextButton")
-        toggleBtn.Position = UDim2.new(1, -60, 0.5, -13)
-        toggleBtn.Size = UDim2.new(0, 48, 0, 26)
-        toggleBtn.BackgroundColor3 = defaultState and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(50, 55, 70)
-        toggleBtn.Text = defaultState and "ON" or "OFF"
-        toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        toggleBtn.Font = Enum.Font.GothamBold
-        toggleBtn.TextSize = 11
-        toggleBtn.Parent = card
-
-        local toggleCorner = Instance.new("UICorner")
-        toggleCorner.CornerRadius = UDim.new(0, 13)
-        toggleCorner.Parent = toggleBtn
-
-        local state = defaultState
-        toggleBtn.MouseButton1Click:Connect(function()
-            state = not state
-            toggleBtn.BackgroundColor3 = state and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(50, 55, 70)
-            toggleBtn.Text = state and "ON" or "OFF"
-            if onToggle then onToggle(state) end
-        end)
-        return card
-    end
-
-    local function createButton(page, labelText, btnColor, onClick)
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(1, -8, 0, 40)
-        btn.BackgroundColor3 = btnColor or Color3.fromRGB(35, 40, 58)
-        btn.Text = labelText
-        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        btn.Font = Enum.Font.GothamBold
-        btn.TextSize = 13
-        btn.Parent = page
-
-        local btnCorner = Instance.new("UICorner")
-        btnCorner.CornerRadius = UDim.new(0, 8)
-        btnCorner.Parent = btn
-
-        btn.MouseButton1Click:Connect(function()
-            if onClick then onClick() end
-        end)
-        return btn
-    end
-
-    -- Tab 1: Farm
-    local farmPage = createTab("Auto Farm", "🌾")
-
-    createToggle(farmPage, "Auto Train (Activate Dumbell)", Config.AutoTrain, function(s)
-        Config.AutoTrain = s
-        if s then Farm.startAutoTrain() else Farm.stopAutoTrain() end
-    end)
-
-    createToggle(farmPage, "Auto Sell (Sell All Friends)", Config.AutoSell, function(s)
-        Config.AutoSell = s
-        if s then Farm.startAutoSell() else Farm.stopAutoSell() end
-    end)
-
-    createToggle(farmPage, "Auto Rebirth", Config.AutoRebirth, function(s)
-        Config.AutoRebirth = s
-        if s then Farm.startAutoRebirth() else Farm.stopAutoRebirth() end
-    end)
-
-    createToggle(farmPage, "💪 Auto Buy Dumbbells (Upgrades)", Config.AutoBuyDumbell, function(s)
-        Config.AutoBuyDumbell = s
-        if s then Farm.startAutoBuyDumbell() else Farm.stopAutoBuyDumbell() end
-    end)
-
-    createToggle(farmPage, "🎒 Auto Upgrade Carry Limit", Config.AutoUpgradeCarry, function(s)
-        Config.AutoUpgradeCarry = s
-        if s then Farm.startAutoUpgradeCarry() else Farm.stopAutoUpgradeCarry() end
-    end)
-
-    createToggle(farmPage, "Auto Pull Egg (Target Tier)", Config.AutoPullEgg, function(s)
-        Config.AutoPullEgg = s
-        if s then Farm.startAutoPullEgg() else Farm.stopAutoPullEgg() end
-    end)
-
-    createToggle(farmPage, "🛡️ Safe Fly / Hover (Dodge Boss)", Config.SafeHover, function(s)
-        Config.SafeHover = s
-        if not s then
-            Farm.setFloat(false)
-            Farm.setNoclip(false)
-        end
-    end)
-
-    -- Tab 2: Eggs & ESP
-    local eggPage = createTab("Eggs & ESP", "🥚")
-
-    createToggle(eggPage, "Egg 3D Billboard ESP", Config.EggESP, function(s)
-        Config.EggESP = s
-        ESP.setEnabled(s)
-    end)
-
-    local sectionLabel = Instance.new("TextLabel")
-    sectionLabel.Size = UDim2.new(1, -8, 0, 24)
-    sectionLabel.BackgroundTransparency = 1
-    sectionLabel.Text = "⚡ Teleport to Egg Tiers (Boss-Safe):"
-    sectionLabel.TextColor3 = Color3.fromRGB(255, 170, 0)
-    sectionLabel.Font = Enum.Font.GothamBold
-    sectionLabel.TextSize = 13
-    sectionLabel.TextXAlignment = Enum.TextXAlignment.Left
-    sectionLabel.Parent = eggPage
-
+    -- ─────────────────────────────────────────────────────────────
+    --  TAB 2 — EGGS & ESP
+    -- ─────────────────────────────────────────────────────────────
+    local eggPage = createTab("Eggs & ESP", "🥚", C.Purple)
+    sectionLabel(eggPage, "VISUAL")
+    createToggle(eggPage, "🔮 Egg 3D Billboard ESP", Config.EggESP, function(s) Config.EggESP=s; ESP.setEnabled(s) end)
+    sectionLabel(eggPage, "TELEPORT TO TIER")
     for _, tier in ipairs(Config.TIERS) do
-        createButton(eggPage, "📍 TP to " .. tier .. " Egg", Color3.fromRGB(24, 27, 39), function()
-            Config.TargetEggTier = tier
-            Farm.teleportToTier(tier)
+        local col = Config.TIER_COLORS[tier] or C.TextSec
+        createButton(eggPage, "📍  " .. tier .. " Egg", col, function()
+            Config.TargetEggTier = tier; Farm.teleportToTier(tier)
         end)
     end
 
-    -- Tab 3: Misc
-    local miscPage = createTab("Misc", "⚙️")
+    -- ─────────────────────────────────────────────────────────────
+    --  TAB 3 — MISC
+    -- ─────────────────────────────────────────────────────────────
+    local miscPage = createTab("Misc", "⚙️", C.Blue)
+    sectionLabel(miscPage, "REWARDS")
+    createButton(miscPage, "🎁  Claim Daily & Group Rewards", C.Green,    function() Remotes.fire("Claim Daily Reward") Remotes.fire("Claim Group Reward") end)
+    createButton(miscPage, "💰  Sell All Friends (Manual)",   C.Blue,     function() Remotes.fire("Sell All Friends") end)
+    sectionLabel(miscPage, "QUICK TELEPORT")
+    createButton(miscPage, "🏠  Teleport to Spawn",           C.TextSec,  function() Farm.teleportToSpawn() end)
+    createButton(miscPage, "🛒  Teleport to Sell Shop",       C.TextSec,  function() Farm.teleportToShop("Sell") end)
+    createButton(miscPage, "⚡  Teleport to Strength Shop",   C.TextSec,  function() Farm.teleportToShop("ShopSpeed") end)
+    createButton(miscPage, "🎒  Teleport to Carry Shop",      C.TextSec,  function() Farm.teleportToShop("ShopCarry") end)
+    sectionLabel(miscPage, "SYSTEM")
+    createButton(miscPage, "❌  Unload Script",               C.Red,      function() Runtime.Unload() end)
 
-    createButton(miscPage, "🎁 Claim All Daily & Group Rewards", Color3.fromRGB(39, 174, 96), function()
-        Remotes.fire("Claim Daily Reward")
-        Remotes.fire("Claim Group Reward")
-    end)
-
-    createButton(miscPage, "💰 Sell All Friends Once", Color3.fromRGB(41, 128, 185), function()
-        Remotes.fire("Sell All Friends")
-    end)
-
-    createButton(miscPage, "🏠 Teleport to Spawn", Color3.fromRGB(35, 40, 58), function()
-        Farm.teleportToSpawn()
-    end)
-
-    createButton(miscPage, "🛒 Teleport to Sell Shop", Color3.fromRGB(35, 40, 58), function()
-        Farm.teleportToShop("Sell")
-    end)
-
-    createButton(miscPage, "⚡ Teleport to Strength Shop", Color3.fromRGB(35, 40, 58), function()
-        Farm.teleportToShop("ShopSpeed")
-    end)
-
-    createButton(miscPage, "🎒 Teleport to Carry Shop", Color3.fromRGB(35, 40, 58), function()
-        Farm.teleportToShop("ShopCarry")
-    end)
-
-    createButton(miscPage, "❌ Unload Script (Close All)", Color3.fromRGB(192, 57, 43), function()
-        Runtime.Unload()
-    end)
-
-    -- ── Tab 4: Universal ─────────────────────────────────────────────
-    local uniPage = createTab("Universal", "🌐")
-
-    -- Section header
-    local uniHeader = Instance.new("TextLabel")
-    uniHeader.Size = UDim2.new(1, -8, 0, 28)
-    uniHeader.BackgroundColor3 = Color3.fromRGB(18, 20, 30)
-    uniHeader.BackgroundTransparency = 0
-    uniHeader.BorderSizePixel = 0
-    uniHeader.Text = "  🛡️  Universal Utilities"
-    uniHeader.TextColor3 = Color3.fromRGB(255, 170, 0)
-    uniHeader.Font = Enum.Font.GothamBold
-    uniHeader.TextSize = 12
-    uniHeader.TextXAlignment = Enum.TextXAlignment.Left
-    uniHeader.Parent = uniPage
-    Instance.new("UICorner", uniHeader).CornerRadius = UDim.new(0, 6)
-
-    -- Anti-AFK toggle (driven by Runtime.Universal)
-    createToggle(uniPage, "🔒 Anti-AFK (Auto Kick Prevention)", Config.AntiAFK, function(s)
-        Config.AntiAFK = s
-        Universal.setAntiAFK(s)
-    end)
-
-    -- Low Graphics Mode toggle
-    createToggle(uniPage, "🎨 Low Graphics Mode (Better FPS)", Config.LowGraphics, function(s)
-        Config.LowGraphics = s
-        Universal.setLowGraphics(s)
-    end)
-
-    -- Rejoin button
-    createButton(uniPage, "🔄 Rejoin Same Server", Color3.fromRGB(41, 128, 185), function()
-        Universal.rejoin()
-    end)
-
-    -- Server Hop button
-    createButton(uniPage, "🌐 Server Hop (New Server)", Color3.fromRGB(52, 73, 94), function()
-        Universal.serverHop()
-    end)
-
-    -- Speed Boost toggle
-    createToggle(uniPage, "⚡ Speed Boost (WalkSpeed " .. Config.WalkSpeed .. ")", Config.SpeedBoost, function(s)
-        Config.SpeedBoost = s
-        Universal.setSpeed(s)
-    end)
+    -- ─────────────────────────────────────────────────────────────
+    --  TAB 4 — UNIVERSAL
+    -- ─────────────────────────────────────────────────────────────
+    local uniPage = createTab("Universal", "🌐", C.Gold)
+    sectionLabel(uniPage, "PROTECTION")
+    createToggle(uniPage, "🔒 Anti-AFK  —  Kick Prevention",     Config.AntiAFK,     function(s) Config.AntiAFK=s;     Universal.setAntiAFK(s) end)
+    sectionLabel(uniPage, "PERFORMANCE")
+    createToggle(uniPage, "🎨 Low Graphics Mode  —  Better FPS", Config.LowGraphics, function(s) Config.LowGraphics=s; Universal.setLowGraphics(s) end)
+    createToggle(uniPage, "⚡ Speed Boost  —  WalkSpeed " .. Config.WalkSpeed, Config.SpeedBoost, function(s) Config.SpeedBoost=s; Universal.setSpeed(s) end)
+    sectionLabel(uniPage, "SERVER")
+    createButton(uniPage, "🔄  Rejoin Same Server",              C.Blue,   function() Universal.rejoin() end)
+    createButton(uniPage, "🌐  Server Hop  —  New Server",       C.Purple, function() Universal.serverHop() end)
 
     screenGui.Parent = parent
     toggleGui.Parent = parent
     table.insert(Runtime.Instances, screenGui)
     table.insert(Runtime.Instances, toggleGui)
 end
-
 -- ── 6. Universal Utilities Module ───────────────────────────────────
 local Universal = {}
 do
