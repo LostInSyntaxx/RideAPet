@@ -1,39 +1,24 @@
--- LuxuryXHUB — Pull An Egg (Standalone Suite)
+--[[
+    LuxuryXHUB - Pull An Egg (Standalone Monolithic Bundle)
+    File: scripts/pull_an_egg.lua
+]]
 
--- ── Configuration & Constants ───────────────────────────────────────
--- ⚠️ เปลี่ยน URL ด้านล่างนี้ให้ตรงกับลิงก์ Raw Lua ของคุณเองสำหรับระบบ Rejoin/Server Hop
-local SCRIPT_RAW_URL = "https://raw.githubusercontent.com/YourUsername/YourRepo/main/pull_an_egg.lua"
-
--- ── 0. Cleanup Previous Instance (Prevent duplicate execution) ──────
-if getgenv().LuxuryXHUB_PullAnEgg and typeof(getgenv().LuxuryXHUB_PullAnEgg.Unload) == "function" then
-    pcall(function()
-        getgenv().LuxuryXHUB_PullAnEgg.Unload()
-    end)
-end
-
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
--- ── Runtime Tracker ─────────────────────────────────────────────────
-local Runtime = {
-    Connections = {},
-    Threads = {},
-    Instances = {},
-    Running = true
-}
-
-function Runtime.trackConnection(conn)
-    table.insert(Runtime.Connections, conn)
-    return conn
-end
-
--- ── 1. Configuration ───────────────────────────────────────────────
+-- ===================================================================
+-- 1. CONFIG MODULE
+-- ===================================================================
 local Config = {
+    GameName = "Pull An Egg",
+    PlaceId  = 70640255604878,
+    GameId   = 10649255304,
+
     AutoTrain       = false,
     TrainInterval   = 0.1,
 
@@ -45,6 +30,7 @@ local Config = {
 
     AutoBuyDumbell  = false,
     AutoUpgradeCarry= false,
+    AutoRevive      = true,
 
     AutoPullEgg     = false,
     TargetEggTier   = "Celestial",
@@ -52,13 +38,6 @@ local Config = {
     SafeHover       = true,
 
     EggESP          = true,
-
-    -- Universal
-    AntiAFK         = true,
-    LowGraphics     = false,
-    SpeedBoost      = false,
-    WalkSpeed       = 100,
-    JumpPower       = 80,
 
     TIERS = {
         "Celestial",
@@ -89,7 +68,9 @@ local Config = {
     }
 }
 
--- ── 2. Remotes Accessor ─────────────────────────────────────────────
+-- ===================================================================
+-- 2. REMOTES MODULE
+-- ===================================================================
 local Remotes = {}
 local remotesFolder = nil
 
@@ -105,38 +86,90 @@ local function getRemotesFolder()
     return remotesFolder
 end
 
-function Remotes.fire(name, ...)
+function Remotes.fireEvent(name, ...)
     local folder = getRemotesFolder()
-    if folder then
-        local r = folder:FindFirstChild(name)
-        if r and r:IsA("RemoteEvent") then
-            r:FireServer(...)
-            return true
-        end
+    if not folder then return false end
+    local remote = folder:FindFirstChild(name)
+    if remote and remote:IsA("RemoteEvent") then
+        remote:FireServer(...)
+        return true
     end
     return false
 end
 
-function Remotes.invoke(name, ...)
+function Remotes.invokeFunction(name, ...)
     local folder = getRemotesFolder()
-    if folder then
-        local r = folder:FindFirstChild(name)
-        if r and r:IsA("RemoteFunction") then
-            return r:InvokeServer(...)
-        end
+    if not folder then return nil end
+    local remote = folder:FindFirstChild(name)
+    if remote and remote:IsA("RemoteFunction") then
+        return remote:InvokeServer(...)
     end
     return nil
 end
 
+function Remotes.train() return Remotes.fireEvent("Activate Dumbell") end
+function Remotes.sellAll() return Remotes.fireEvent("Sell All Friends") end
+function Remotes.rebirth() return Remotes.fireEvent("Rebirth") end
+function Remotes.claimEgg(eggNameOrId)
+    if eggNameOrId then
+        return Remotes.invokeFunction("Strange: Claim Egg", eggNameOrId)
+    else
+        return Remotes.invokeFunction("Strange: Claim Egg")
+    end
+end
+function Remotes.claimDailyReward() return Remotes.fireEvent("Claim Daily Reward") end
+function Remotes.claimGroupReward() return Remotes.fireEvent("Claim Group Reward") end
+function Remotes.resetAFK() return Remotes.fireEvent("AFK Idle Reset Request") end
+function Remotes.upgradeCarry() return Remotes.fireEvent("Upgrade Carry Limit") end
 function Remotes.buyDumbell(nameOrIndex)
     local dumbellId = typeof(nameOrIndex) == "number" and ("Dumbell_" .. nameOrIndex) or tostring(nameOrIndex)
-    return Remotes.fire("Buy Dumbell", dumbellId)
+    return Remotes.fireEvent("Buy Dumbell", dumbellId)
 end
 
--- ── 3. Farm & Movement Engine ───────────────────────────────────────
-local Farm = { Threads = {} }
+-- ===================================================================
+-- 3. FARM MODULE
+-- ===================================================================
+local Farm = {
+    Running = false,
+    Threads = {}
+}
+
 local floatVelocity = nil
 local noclipConnection = nil
+
+function Farm.init(cfg, rems)
+    Config = cfg
+    Remotes = rems
+    Farm.hookAutoRevive()
+end
+
+function Farm.hookAutoRevive()
+    task.spawn(function()
+        while true do
+            if Config and Config.AutoRevive then
+                local pgui = LocalPlayer:FindFirstChild("PlayerGui")
+                local reviveGui = pgui and pgui:FindFirstChild("Revive")
+                if reviveGui and reviveGui.Enabled then
+                    local main = reviveGui:FindFirstChild("Main")
+                    local yes = main and main:FindFirstChild("Yes")
+                    if yes then
+                        if firesignal then
+                            firesignal(yes.MouseButton1Click)
+                        else
+                            pcall(function()
+                                local vim = game:GetService("VirtualInputManager")
+                                local pos = yes.AbsolutePosition + (yes.AbsoluteSize / 2)
+                                vim:SendMouseButtonEvent(pos.X, pos.Y, 0, true, game, 0)
+                                vim:SendMouseButtonEvent(pos.X, pos.Y, 0, false, game, 0)
+                            end)
+                        end
+                    end
+                end
+            end
+            task.wait(0.3)
+        end
+    end)
+end
 
 function Farm.setFloat(enabled)
     local char = LocalPlayer.Character
@@ -152,20 +185,14 @@ function Farm.setFloat(enabled)
             floatVelocity.Parent = root
         end
     else
-        if floatVelocity then
-            floatVelocity:Destroy()
-            floatVelocity = nil
-        end
+        if floatVelocity then floatVelocity:Destroy() floatVelocity = nil end
         local old = root:FindFirstChild("LuxuryXHUB_Float")
         if old then old:Destroy() end
     end
 end
 
 function Farm.setNoclip(enabled)
-    if noclipConnection then
-        noclipConnection:Disconnect()
-        noclipConnection = nil
-    end
+    if noclipConnection then noclipConnection:Disconnect() noclipConnection = nil end
     if enabled then
         noclipConnection = RunService.Stepped:Connect(function()
             local char = LocalPlayer.Character
@@ -177,7 +204,6 @@ function Farm.setNoclip(enabled)
                 end
             end
         end)
-        Runtime.trackConnection(noclipConnection)
     else
         local char = LocalPlayer.Character
         if char then
@@ -215,11 +241,9 @@ end
 function Farm.teleportToTier(tierName)
     local part = Farm.getPartForTier(tierName)
     if part then
-        local h = Config.FlyHeight or 16
+        local h = (Config and Config.FlyHeight) or 16
         Farm.teleportTo(part.CFrame, h)
-        if Config.SafeHover then
-            Farm.setFloat(true)
-        end
+        if Config and Config.SafeHover then Farm.setFloat(true) end
         return true
     end
     return false
@@ -229,7 +253,9 @@ function Farm.teleportToSpawn()
     local spawnLocation = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("SpawnLocation")
     if spawnLocation and spawnLocation:IsA("BasePart") then
         Farm.teleportTo(spawnLocation.CFrame)
+        return true
     end
+    return false
 end
 
 function Farm.teleportToShop(shopName)
@@ -238,16 +264,17 @@ function Farm.teleportToShop(shopName)
         local target = shops:FindFirstChild(shopName)
         if target then
             local root = target:FindFirstChildWhichIsA("BasePart", true)
-            if root then Farm.teleportTo(root.CFrame) end
+            if root then Farm.teleportTo(root.CFrame) return true end
         end
     end
+    return false
 end
 
 function Farm.startAutoTrain()
     if Farm.Threads["AutoTrain"] then return end
     Farm.Threads["AutoTrain"] = task.spawn(function()
-        while Runtime.Running and Config.AutoTrain do
-            Remotes.fire("Activate Dumbell")
+        while Config.AutoTrain do
+            Remotes.train()
             task.wait(Config.TrainInterval or 0.1)
         end
         Farm.Threads["AutoTrain"] = nil
@@ -262,8 +289,8 @@ end
 function Farm.startAutoSell()
     if Farm.Threads["AutoSell"] then return end
     Farm.Threads["AutoSell"] = task.spawn(function()
-        while Runtime.Running and Config.AutoSell do
-            Remotes.fire("Sell All Friends")
+        while Config.AutoSell do
+            Remotes.sellAll()
             task.wait(Config.SellInterval or 2)
         end
         Farm.Threads["AutoSell"] = nil
@@ -278,8 +305,8 @@ end
 function Farm.startAutoRebirth()
     if Farm.Threads["AutoRebirth"] then return end
     Farm.Threads["AutoRebirth"] = task.spawn(function()
-        while Runtime.Running and Config.AutoRebirth do
-            Remotes.fire("Rebirth")
+        while Config.AutoRebirth do
+            Remotes.rebirth()
             task.wait(Config.RebirthInterval or 1)
         end
         Farm.Threads["AutoRebirth"] = nil
@@ -294,11 +321,11 @@ end
 function Farm.startAutoBuyDumbell()
     if Farm.Threads["AutoBuyDumbell"] then return end
     Farm.Threads["AutoBuyDumbell"] = task.spawn(function()
-        while Runtime.Running and Config.AutoBuyDumbell do
+        while Config.AutoBuyDumbell do
             for i = 1, 30 do
                 if not Config.AutoBuyDumbell then break end
                 Remotes.buyDumbell(i)
-                task.wait(0.08)
+                task.wait(0.05)
             end
             task.wait(1)
         end
@@ -314,8 +341,8 @@ end
 function Farm.startAutoUpgradeCarry()
     if Farm.Threads["AutoUpgradeCarry"] then return end
     Farm.Threads["AutoUpgradeCarry"] = task.spawn(function()
-        while Runtime.Running and Config.AutoUpgradeCarry do
-            Remotes.fire("Upgrade Carry Limit")
+        while Config.AutoUpgradeCarry do
+            Remotes.upgradeCarry()
             task.wait(1)
         end
         Farm.Threads["AutoUpgradeCarry"] = nil
@@ -335,9 +362,10 @@ function Farm.startAutoPullEgg()
             Farm.setNoclip(true)
         end
 
-        while Runtime.Running and Config.AutoPullEgg do
+        while Config.AutoPullEgg do
             local targetTier = Config.TargetEggTier or "Celestial"
             local part = Farm.getPartForTier(targetTier)
+
             if part then
                 local flyHeight = Config.FlyHeight or 16
                 local char = LocalPlayer.Character
@@ -347,16 +375,14 @@ function Farm.startAutoPullEgg()
                     local dist = (root.Position - targetPos).Magnitude
                     if dist > 8 then
                         Farm.teleportTo(part.CFrame, flyHeight)
-                        task.wait(0.1)
+                        task.wait(0.2)
                     end
                 end
-                
-                pcall(function()
-                    Remotes.invoke("Strange: Claim Egg", targetTier)
-                end)
-                Remotes.fire("Activate Dumbell")
+
+                Remotes.claimEgg(targetTier)
+                Remotes.train()
             end
-            task.wait(0.1)
+            task.wait(0.2)
         end
 
         Farm.setFloat(false)
@@ -372,8 +398,19 @@ function Farm.stopAutoPullEgg()
     Farm.Threads["AutoPullEgg"] = nil
 end
 
--- ── 4. ESP Engine ───────────────────────────────────────────────────
-local ESP = { Billboards = {}, Enabled = true, Connection = nil }
+-- ===================================================================
+-- 4. ESP MODULE
+-- ===================================================================
+local ESP = {
+    Enabled = true,
+    Billboards = {},
+    Connection = nil
+}
+
+function ESP.init(cfg)
+    Config = cfg
+    ESP.setupVisuals()
+end
 
 function ESP.createBillboard(part, tierName, color)
     if part:FindFirstChild("LuxuryXHUB_ESP") then return end
@@ -412,6 +449,7 @@ function ESP.createBillboard(part, tierName, color)
     title.Parent = frame
 
     local distLabel = Instance.new("TextLabel")
+    distLabel.Name = "DistLabel"
     distLabel.Position = UDim2.new(0, 0, 0.55, 0)
     distLabel.Size = UDim2.new(1, 0, 0.45, 0)
     distLabel.BackgroundTransparency = 1
@@ -422,16 +460,21 @@ function ESP.createBillboard(part, tierName, color)
     distLabel.Parent = frame
 
     billboard.Parent = part
-    table.insert(ESP.Billboards, { Part = part, DistLabel = distLabel, Billboard = billboard })
+    table.insert(ESP.Billboards, {
+        Part = part,
+        DistLabel = distLabel,
+        Billboard = billboard
+    })
 end
 
-function ESP.init()
+function ESP.setupVisuals()
     local spawnParts = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("SpawnParts")
     if not spawnParts then return end
 
     for _, tierFolder in ipairs(spawnParts:GetChildren()) do
         local tierName = tierFolder.Name
-        local color = Config.TIER_COLORS[tierName] or Color3.fromRGB(255, 255, 255)
+        local color = (Config and Config.TIER_COLORS[tierName]) or Color3.fromRGB(255, 255, 255)
+
         for _, part in ipairs(tierFolder:GetChildren()) do
             if part:IsA("BasePart") then
                 ESP.createBillboard(part, tierName, color)
@@ -454,14 +497,15 @@ function ESP.init()
                 end
             end
         end)
-        Runtime.trackConnection(ESP.Connection)
     end
 end
 
 function ESP.setEnabled(state)
     ESP.Enabled = state
     for _, item in ipairs(ESP.Billboards) do
-        if item.Billboard then item.Billboard.Enabled = state end
+        if item.Billboard then
+            item.Billboard.Enabled = state
+        end
     end
 end
 
@@ -471,12 +515,22 @@ function ESP.destroy()
         ESP.Connection = nil
     end
     for _, item in ipairs(ESP.Billboards) do
-        if item.Billboard then item.Billboard:Destroy() end
+        if item.Billboard then
+            item.Billboard:Destroy()
+        end
     end
     ESP.Billboards = {}
 end
 
--- ── 5. User Interface (GUI) ────────────────────────────────────────
+-- ===================================================================
+-- 5. UI MODULE
+-- ===================================================================
+local UI = {
+    ScreenGui = nil,
+    ToggleGui = nil,
+    MainFrame = nil
+}
+
 local function getGuiParent()
     local success, hui = pcall(function() return gethui() end)
     if success and hui then return hui end
@@ -485,791 +539,533 @@ local function getGuiParent()
     return LocalPlayer:WaitForChild("PlayerGui")
 end
 
--- ── Design Tokens ──────────────────────────────────────────────────
-local C = {
-    BG0       = Color3.fromRGB(17,  17,  17),
-    BG1       = Color3.fromRGB(31,  31,  31),
-    BG2       = Color3.fromRGB(36,  36,  36),
-    BG3       = Color3.fromRGB(26,  26,  26),
-    Border0   = Color3.fromRGB(50,  50,  50),
-    Border1   = Color3.fromRGB(45,  45,  45),
-    Border2   = Color3.fromRGB(38,  38,  38),
-    Gold      = Color3.fromRGB(255, 185,  50),
-    GoldDim   = Color3.fromRGB(60,  42,   8),
-    GoldText  = Color3.fromRGB(255, 200,  80),
-    Green     = Color3.fromRGB( 52, 211, 153),
-    GreenDim  = Color3.fromRGB( 15,  60,  40),
-    Red       = Color3.fromRGB(239,  68,  68),
-    Blue      = Color3.fromRGB( 59, 130, 246),
-    Purple    = Color3.fromRGB(139,  92, 246),
-    TextPri   = Color3.fromRGB(230, 230, 230),
-    TextSec   = Color3.fromRGB(130, 130, 130),
-    TextMuted = Color3.fromRGB( 70,  70,  70),
-}
-
-local TW = game:GetService("TweenService")
-local function tw(obj, props, t)
-    TW:Create(obj, TweenInfo.new(t or 0.14, Enum.EasingStyle.Quad), props):Play()
+function UI.init(cfg, farmRef, espRef, remsRef)
+    Config = cfg
+    Farm = farmRef
+    ESP = espRef
+    Remotes = remsRef
+    UI.build()
 end
 
-local function corner(p, r) local c=Instance.new("UICorner") c.CornerRadius=r or UDim.new(0,12) c.Parent=p return c end
-local function stroke(p, col, th)
-    local s=Instance.new("UIStroke") s.Color=col or Color3.fromRGB(45,45,45)
-    s.Thickness=th or 1 s.ApplyStrokeMode=Enum.ApplyStrokeMode.Border s.Parent=p return s
-end
-local function list(p, pad, dir)
-    local l=Instance.new("UIListLayout") l.Padding=UDim.new(0,pad or 8)
-    l.SortOrder=Enum.SortOrder.LayoutOrder l.FillDirection=dir or Enum.FillDirection.Vertical l.Parent=p return l
-end
-local function pad(p, x, y)
-    local u=Instance.new("UIPadding") u.PaddingLeft=UDim.new(0,x or 12) u.PaddingRight=UDim.new(0,x or 12)
-    u.PaddingTop=UDim.new(0,y or 10) u.PaddingBottom=UDim.new(0,y or 10) u.Parent=p return u
-end
-
-local function buildUI()
+function UI.build()
     local parent = getGuiParent()
-    local old1 = parent:FindFirstChild("LuxuryXHUB_PullAnEgg")
-    if old1 then old1:Destroy() end
-    local old2 = parent:FindFirstChild("LuxuryXHUB_FloatingBtn")
-    if old2 then old2:Destroy() end
+    local old = parent:FindFirstChild("LuxuryXHUB_PullAnEgg")
+    if old then old:Destroy() end
+    local oldToggle = parent:FindFirstChild("LuxuryXHUB_FloatingBtn")
+    if oldToggle then oldToggle:Destroy() end
 
-    -- ── ScreenGuis ───────────────────────────────────────────────
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "LuxuryXHUB_PullAnEgg"
     screenGui.ResetOnSpawn = false
     screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    screenGui.DisplayOrder = 999
+
+    local main = Instance.new("Frame")
+    main.Name = "MainFrame"
+    main.Size = UDim2.new(0, 680, 0, 460)
+    main.Position = UDim2.new(0.5, -340, 0.5, -230)
+    main.BackgroundColor3 = Color3.fromRGB(23, 23, 23)
+    main.BackgroundTransparency = 0.15
+    main.BorderSizePixel = 0
+    main.ClipsDescendants = true
+    main.Parent = screenGui
+
+    local mainCorner = Instance.new("UICorner")
+    mainCorner.CornerRadius = UDim.new(0, 16)
+    mainCorner.Parent = main
+
+    local mainStroke = Instance.new("UIStroke")
+    mainStroke.Color = Color3.fromRGB(45, 45, 45)
+    mainStroke.Transparency = 0.5
+    mainStroke.Thickness = 1
+    mainStroke.Parent = main
 
     local toggleGui = Instance.new("ScreenGui")
     toggleGui.Name = "LuxuryXHUB_FloatingBtn"
     toggleGui.ResetOnSpawn = false
     toggleGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    toggleGui.DisplayOrder = 1000
-
-    -- ── Floating Button ──────────────────────────────────────────
-    local floatOuter = Instance.new("Frame")
-    floatOuter.Size = UDim2.new(0, 52, 0, 52)
-    floatOuter.Position = UDim2.new(0, 16, 0.5, -26)
-    floatOuter.BackgroundColor3 = C.BG1
-    floatOuter.BorderSizePixel = 0
-    floatOuter.Parent = toggleGui
-    corner(floatOuter, UDim.new(0, 14))
-    stroke(floatOuter, C.Gold, 1.5)
 
     local floatBtn = Instance.new("TextButton")
     floatBtn.Name = "OpenButton"
-    floatBtn.Size = UDim2.new(1, 0, 1, 0)
-    floatBtn.BackgroundTransparency = 1
+    floatBtn.Size = UDim2.new(0, 52, 0, 52)
+    floatBtn.Position = UDim2.new(0, 24, 0.5, -26)
+    floatBtn.BackgroundColor3 = Color3.fromRGB(23, 23, 23)
     floatBtn.Text = "🐾"
-    floatBtn.TextSize = 24
-    floatBtn.Font = Enum.Font.GothamBold
-    floatBtn.Parent = floatOuter
+    floatBtn.TextSize = 22
+    floatBtn.Parent = toggleGui
+
+    local floatCorner = Instance.new("UICorner")
+    floatCorner.CornerRadius = UDim.new(0, 26)
+    floatCorner.Parent = floatBtn
+
+    local floatStroke = Instance.new("UIStroke")
+    floatStroke.Color = Color3.fromRGB(255, 180, 0)
+    floatStroke.Thickness = 1.5
+    floatStroke.Parent = floatBtn
+
+    local function toggleUI()
+        main.Visible = not main.Visible
+        if main.Visible then
+            floatBtn.BackgroundColor3 = Color3.fromRGB(255, 180, 0)
+            floatBtn.TextColor3 = Color3.fromRGB(14, 14, 14)
+        else
+            floatBtn.BackgroundColor3 = Color3.fromRGB(23, 23, 23)
+            floatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        end
+    end
+
+    floatBtn.MouseButton1Click:Connect(toggleUI)
 
     local floatDragging, floatDragInput, floatStart, floatPos
-    floatOuter.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-            floatDragging = true; floatStart = i.Position; floatPos = floatOuter.Position
-            i.Changed:Connect(function() if i.UserInputState == Enum.UserInputState.End then floatDragging = false end end)
+    floatBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            floatDragging = true
+            floatStart = input.Position
+            floatPos = floatBtn.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then floatDragging = false end
+            end)
         end
     end)
-    floatOuter.InputChanged:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then floatDragInput = i end
+
+    floatBtn.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            floatDragInput = input
+        end
     end)
 
-    -- ── Main Window Shell ─────────────────────────────────────────
-    local shell = Instance.new("Frame")
-    shell.Name = "MainFrame"
-    shell.Size = UDim2.new(0, 660, 0, 460)
-    shell.Position = UDim2.new(0.5, -330, 0.5, -230)
-    shell.BackgroundColor3 = C.BG0
-    shell.BorderSizePixel = 0
-    shell.ClipsDescendants = true
-    shell.Parent = screenGui
-    corner(shell, UDim.new(0, 16))
-    stroke(shell, C.Border0, 1)
-
-    -- Gold top accent stripe
-    local stripe = Instance.new("Frame")
-    stripe.Size = UDim2.new(1, 0, 0, 2)
-    stripe.BackgroundColor3 = C.Gold
-    stripe.BorderSizePixel = 0
-    stripe.ZIndex = 3
-    stripe.Parent = shell
-
-    -- Inner surface
-    local main = Instance.new("Frame")
-    main.Size = UDim2.new(1, -2, 1, -2)
-    main.Position = UDim2.new(0, 1, 0, 1)
-    main.BackgroundColor3 = C.BG1
-    main.BorderSizePixel = 0
-    main.ClipsDescendants = true
-    main.Parent = shell
-    corner(main, UDim.new(0, 15))
-
-    -- ── Title Bar ─────────────────────────────────────────────────
-    local titleBar = Instance.new("Frame")
-    titleBar.Name = "TitleBar"
-    titleBar.Size = UDim2.new(1, 0, 0, 56)
-    titleBar.BackgroundColor3 = C.BG0
-    titleBar.BorderSizePixel = 0
-    titleBar.Parent = main
-
-    -- Logo icon
-    local logoBox = Instance.new("Frame")
-    logoBox.Position = UDim2.new(0, 14, 0.5, -16)
-    logoBox.Size = UDim2.new(0, 32, 0, 32)
-    logoBox.BackgroundColor3 = C.GoldDim
-    logoBox.BorderSizePixel = 0
-    logoBox.Parent = titleBar
-    corner(logoBox, UDim.new(0, 8))
-
-    local logoTxt = Instance.new("TextLabel")
-    logoTxt.Size = UDim2.new(1, 0, 1, 0)
-    logoTxt.BackgroundTransparency = 1
-    logoTxt.Text = "🐾"
-    logoTxt.TextSize = 16
-    logoTxt.Font = Enum.Font.GothamBold
-    logoTxt.Parent = logoBox
-
-    -- Title + subtitle
-    local titleLbl = Instance.new("TextLabel")
-    titleLbl.Position = UDim2.new(0, 54, 0, 10)
-    titleLbl.Size = UDim2.new(0, 200, 0, 20)
-    titleLbl.BackgroundTransparency = 1
-    titleLbl.Text = "LuxuryXHUB"
-    titleLbl.TextColor3 = C.GoldText
-    titleLbl.Font = Enum.Font.GothamBold
-    titleLbl.TextSize = 16
-    titleLbl.TextXAlignment = Enum.TextXAlignment.Left
-    titleLbl.Parent = titleBar
-
-    local subLbl = Instance.new("TextLabel")
-    subLbl.Position = UDim2.new(0, 54, 0, 32)
-    subLbl.Size = UDim2.new(0, 240, 0, 14)
-    subLbl.BackgroundTransparency = 1
-    subLbl.Text = "Pull An Egg  ·  Automation Suite"
-    subLbl.TextColor3 = C.TextMuted
-    subLbl.Font = Enum.Font.Gotham
-    subLbl.TextSize = 10
-    subLbl.TextXAlignment = Enum.TextXAlignment.Left
-    subLbl.Parent = titleBar
-
-    -- Window control buttons
-    local function winBtn(col, sym, xOff)
-        local b = Instance.new("TextButton")
-        b.Position = UDim2.new(1, xOff, 0.5, -13)
-        b.Size = UDim2.new(0, 26, 0, 26)
-        b.BackgroundColor3 = col
-        b.Text = sym
-        b.TextColor3 = Color3.fromRGB(255,255,255)
-        b.TextSize = 11
-        b.Font = Enum.Font.GothamBold
-        b.AutoButtonColor = false
-        b.Parent = titleBar
-        corner(b, UDim.new(0, 6))
-        b.MouseEnter:Connect(function() tw(b, {BackgroundTransparency=0.3}) end)
-        b.MouseLeave:Connect(function() tw(b, {BackgroundTransparency=0}) end)
-        return b
-    end
-    local closeBtn = winBtn(C.Red,                    "✕", -38)
-    local minBtn   = winBtn(Color3.fromRGB(55,55,55), "─", -72)
-
-    -- Toggle + drag
-    local function toggleUI()
-        shell.Visible = not shell.Visible
-        tw(floatOuter, {BackgroundColor3 = shell.Visible and C.GoldDim or C.BG1})
-    end
-    floatBtn.MouseButton1Click:Connect(toggleUI)
-    closeBtn.MouseButton1Click:Connect(function() shell.Visible = false tw(floatOuter,{BackgroundColor3=C.BG1}) end)
-    minBtn.MouseButton1Click:Connect(function()   shell.Visible = false tw(floatOuter,{BackgroundColor3=C.BG1}) end)
-
-    local kc = UserInputService.InputBegan:Connect(function(i, gpe)
-        if not gpe and (i.KeyCode == Enum.KeyCode.LeftControl or i.KeyCode == Enum.KeyCode.RightControl) then toggleUI() end
+    UserInputService.InputChanged:Connect(function(input)
+        if input == floatDragInput and floatDragging then
+            local delta = input.Position - floatStart
+            floatBtn.Position = UDim2.new(floatPos.X.Scale, floatPos.X.Offset + delta.X, floatPos.Y.Scale, floatPos.Y.Offset + delta.Y)
+        end
     end)
-    Runtime.trackConnection(kc)
+
+    UserInputService.InputBegan:Connect(function(input, gpe)
+        if not gpe and (input.KeyCode == Enum.KeyCode.LeftControl or input.KeyCode == Enum.KeyCode.RightControl) then
+            toggleUI()
+        end
+    end)
+
+    local topHeader = Instance.new("Frame")
+    topHeader.Name = "TopHeader"
+    topHeader.Size = UDim2.new(1, 0, 0, 48)
+    topHeader.BackgroundColor3 = Color3.fromRGB(14, 14, 14)
+    topHeader.BorderSizePixel = 0
+    topHeader.Parent = main
+
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Position = UDim2.new(0, 16, 0, 0)
+    titleLabel.Size = UDim2.new(0, 180, 1, 0)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = "LUXURY<font color=\"#FFB400\">HUB</font>"
+    titleLabel.RichText = true
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextSize = 16
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = topHeader
+
+    local badgeLabel = Instance.new("TextLabel")
+    badgeLabel.Position = UDim2.new(0, 140, 0.5, -10)
+    badgeLabel.Size = UDim2.new(0, 88, 0, 20)
+    badgeLabel.BackgroundColor3 = Color3.fromRGB(31, 31, 31)
+    badgeLabel.Text = "PULL AN EGG"
+    badgeLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+    badgeLabel.Font = Enum.Font.GothamBold
+    badgeLabel.TextSize = 9
+    badgeLabel.Parent = topHeader
+
+    local badgeCorner = Instance.new("UICorner")
+    badgeCorner.CornerRadius = UDim.new(0, 6)
+    badgeCorner.Parent = badgeLabel
+
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Position = UDim2.new(1, -38, 0.5, -13)
+    closeBtn.Size = UDim2.new(0, 26, 0, 26)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(31, 31, 31)
+    closeBtn.Text = "✕"
+    closeBtn.TextColor3 = Color3.fromRGB(160, 160, 160)
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.TextSize = 12
+    closeBtn.Parent = topHeader
+
+    local closeCorner = Instance.new("UICorner")
+    closeCorner.CornerRadius = UDim.new(0, 6)
+    closeCorner.Parent = closeBtn
+
+    closeBtn.MouseButton1Click:Connect(function()
+        main.Visible = false
+        floatBtn.BackgroundColor3 = Color3.fromRGB(23, 23, 23)
+        floatBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    end)
 
     local dragging, dragInput, dragStart, startPos
-    titleBar.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+    topHeader.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
-            dragStart = i.Position
-            startPos = shell.Position
-            i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then dragging=false end end)
-        end
-    end)
-    titleBar.InputChanged:Connect(function(i)
-        if i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch then dragInput=i end
-    end)
-    UserInputService.InputChanged:Connect(function(i)
-        if i == floatDragInput and floatDragging then
-            local d = i.Position - floatStart
-            floatOuter.Position = UDim2.new(floatPos.X.Scale, floatPos.X.Offset+d.X, floatPos.Y.Scale, floatPos.Y.Offset+d.Y)
-        end
-        if i == dragInput and dragging then
-            local d = i.Position - dragStart
-            shell.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset+d.X, startPos.Y.Scale, startPos.Y.Offset+d.Y)
+            dragStart = input.Position
+            startPos = main.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
         end
     end)
 
-    -- Title bar bottom rule
-    local tbRule = Instance.new("Frame")
-    tbRule.Position = UDim2.new(0,0,1,-1)
-    tbRule.Size = UDim2.new(1,0,0,1)
-    tbRule.BackgroundColor3 = C.Border0
-    tbRule.BorderSizePixel = 0
-    tbRule.Parent = titleBar
+    topHeader.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
 
-    -- ── Ribbon Tab Bar ────────────────────────────────────────────
-    local ribbon = Instance.new("Frame")
-    ribbon.Name = "Ribbon"
-    ribbon.Position = UDim2.new(0, 0, 0, 56)
-    ribbon.Size = UDim2.new(1, 0, 0, 46)
-    ribbon.BackgroundColor3 = C.BG0
-    ribbon.BorderSizePixel = 0
-    ribbon.Parent = main
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
 
-    local ribbonRow = Instance.new("Frame")
-    ribbonRow.Position = UDim2.new(0, 14, 0, 4)
-    ribbonRow.Size = UDim2.new(1, -14, 1, -4)
-    ribbonRow.BackgroundTransparency = 1
-    ribbonRow.Parent = ribbon
-    
-    local ribbonList = Instance.new("UIListLayout")
-    ribbonList.Padding = UDim.new(0, 4)
-    ribbonList.SortOrder = Enum.SortOrder.LayoutOrder
-    ribbonList.FillDirection = Enum.FillDirection.Horizontal
-    ribbonList.Parent = ribbonRow
+    local ribbonFrame = Instance.new("Frame")
+    ribbonFrame.Name = "RibbonBar"
+    ribbonFrame.Position = UDim2.new(0, 0, 0, 48)
+    ribbonFrame.Size = UDim2.new(1, 0, 0, 42)
+    ribbonFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+    ribbonFrame.BorderSizePixel = 0
+    ribbonFrame.Parent = main
 
-    local ribbonRule = Instance.new("Frame")
-    ribbonRule.Position = UDim2.new(0,0,1,-1)
-    ribbonRule.Size = UDim2.new(1,0,0,1)
-    ribbonRule.BackgroundColor3 = C.Border0
-    ribbonRule.BorderSizePixel = 0
-    ribbonRule.Parent = ribbon
+    local ribbonLayout = Instance.new("UIListLayout")
+    ribbonLayout.FillDirection = Enum.FillDirection.Horizontal
+    ribbonLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+    ribbonLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    ribbonLayout.Padding = UDim.new(0, 6)
+    ribbonLayout.Parent = ribbonFrame
 
-    -- ── Content Area ──────────────────────────────────────────────
-    local contentArea = Instance.new("Frame")
-    contentArea.Position = UDim2.new(0, 0, 0, 102)
-    contentArea.Size = UDim2.new(1, 0, 1, -102)
-    contentArea.BackgroundTransparency = 1
-    contentArea.Parent = main
+    local ribbonPadding = Instance.new("UIPadding")
+    ribbonPadding.PaddingLeft = UDim.new(0, 12)
+    ribbonPadding.PaddingTop = UDim.new(0, 6)
+    ribbonPadding.Parent = ribbonFrame
 
-    -- ─────────────────────────────────────────────────────────────
-    --  COMPONENT BUILDERS (FIXED UI CREATION)
-    -- ─────────────────────────────────────────────────────────────
+    local contentFrame = Instance.new("Frame")
+    contentFrame.Name = "ContentFrame"
+    contentFrame.Position = UDim2.new(0, 0, 0, 90)
+    contentFrame.Size = UDim2.new(1, 0, 1, -90)
+    contentFrame.BackgroundTransparency = 1
+    contentFrame.Parent = main
 
-    local function createToggle(page, labelText, defaultState, onToggle)
-        local o = Instance.new("Frame")
-        o.Size = UDim2.new(1, 0, 0, 48)
-        o.BackgroundColor3 = C.BG2
-        o.BorderSizePixel = 0
-        o.Parent = page
-        corner(o, UDim.new(0, 8))
-        stroke(o, C.Border1, 1)
-
-        local dot = Instance.new("Frame")
-        dot.Position = UDim2.new(0, 12, 0.5, -4)
-        dot.Size = UDim2.new(0, 8, 0, 8)
-        dot.BackgroundColor3 = defaultState and C.Green or C.TextMuted
-        dot.BorderSizePixel = 0
-        dot.Parent = o
-        corner(dot, UDim.new(1, 0))
-
-        local lbl = Instance.new("TextLabel")
-        lbl.Position = UDim2.new(0, 28, 0, 0)
-        lbl.Size = UDim2.new(1, -90, 1, 0)
-        lbl.BackgroundTransparency = 1
-        lbl.Text = labelText
-        lbl.TextColor3 = C.TextPri
-        lbl.Font = Enum.Font.GothamMedium
-        lbl.TextSize = 13
-        lbl.TextXAlignment = Enum.TextXAlignment.Left
-        lbl.Parent = o
-
-        local track = Instance.new("Frame")
-        track.Position = UDim2.new(1, -52, 0.5, -11)
-        track.Size = UDim2.new(0, 40, 0, 22)
-        track.BackgroundColor3 = defaultState and C.GreenDim or C.BG0
-        track.BorderSizePixel = 0
-        track.Parent = o
-        corner(track, UDim.new(1, 0))
-        local trackS = stroke(track, defaultState and C.Green or C.Border1, 1)
-
-        local knob = Instance.new("Frame")
-        knob.Size = UDim2.new(0, 14, 0, 14)
-        knob.Position = defaultState and UDim2.new(1, -18, 0.5, -7) or UDim2.new(0, 4, 0.5, -7)
-        knob.BackgroundColor3 = defaultState and C.Green or C.TextMuted
-        knob.BorderSizePixel = 0
-        knob.Parent = track
-        corner(knob, UDim.new(1, 0))
-
-        local hit = Instance.new("TextButton")
-        hit.Size = UDim2.new(1, 0, 1, 0)
-        hit.BackgroundTransparency = 1
-        hit.Text = ""
-        hit.Parent = o
-
-        local state = defaultState
-        hit.MouseButton1Click:Connect(function()
-            state = not state
-            tw(knob, {Position = state and UDim2.new(1,-18,0.5,-7) or UDim2.new(0,4,0.5,-7), BackgroundColor3 = state and C.Green or C.TextMuted})
-            tw(track, {BackgroundColor3 = state and C.GreenDim or C.BG0})
-            tw(trackS, {Color = state and C.Green or C.Border1})
-            tw(dot,   {BackgroundColor3 = state and C.Green or C.TextMuted})
-            if onToggle then onToggle(state) end
-        end)
-        return o
-    end
-
-    local function createButton(page, labelText, accentCol, onClick)
-        local o = Instance.new("Frame")
-        o.Size = UDim2.new(1, 0, 0, 42)
-        o.BackgroundColor3 = C.BG2
-        o.BorderSizePixel = 0
-        o.Parent = page
-        corner(o, UDim.new(0, 8))
-        stroke(o, C.Border1, 1)
-
-        local inn = Instance.new("TextButton")
-        inn.Size = UDim2.new(1, 0, 1, 0)
-        inn.BackgroundTransparency = 1
-        inn.Text = ""
-        inn.Parent = o
-
-        local bar = Instance.new("Frame")
-        bar.Size = UDim2.new(0, 3, 0.5, 0)
-        bar.Position = UDim2.new(0, 10, 0.25, 0)
-        bar.BackgroundColor3 = accentCol or C.Gold
-        bar.BorderSizePixel = 0
-        bar.Parent = inn
-        corner(bar, UDim.new(1, 0))
-
-        local lbl = Instance.new("TextLabel")
-        lbl.Position = UDim2.new(0, 22, 0, 0)
-        lbl.Size = UDim2.new(1, -40, 1, 0)
-        lbl.BackgroundTransparency = 1
-        lbl.Text = labelText
-        lbl.TextColor3 = C.TextPri
-        lbl.Font = Enum.Font.GothamMedium
-        lbl.TextSize = 13
-        lbl.TextXAlignment = Enum.TextXAlignment.Left
-        lbl.Parent = inn
-
-        inn.MouseButton1Click:Connect(function()
-            if onClick then onClick() end
-        end)
-        return o
-    end
-
-    local function sectionLabel(page, text)
-        local row = Instance.new("Frame")
-        row.Size = UDim2.new(1, 0, 0, 26)
-        row.BackgroundTransparency = 1
-        row.Parent = page
-
-        local line = Instance.new("Frame")
-        line.Position = UDim2.new(0, 0, 0.5, 0)
-        line.Size = UDim2.new(1, 0, 0, 1)
-        line.BackgroundColor3 = C.Border1
-        line.BorderSizePixel = 0
-        line.Parent = row
-
-        local bg = Instance.new("Frame")
-        bg.BackgroundColor3 = C.BG1
-        bg.BorderSizePixel = 0
-        bg.Position = UDim2.new(0, 0, 0, 4)
-        bg.Size = UDim2.new(0, #text * 7 + 20, 0, 18)
-        bg.Parent = row
-
-        local lbl = Instance.new("TextLabel")
-        lbl.Size = UDim2.new(1, 0, 1, 0)
-        lbl.BackgroundTransparency = 1
-        lbl.Text = "  " .. text
-        lbl.TextColor3 = C.TextSec
-        lbl.Font = Enum.Font.GothamBold
-        lbl.TextSize = 9
-        lbl.TextXAlignment = Enum.TextXAlignment.Left
-        lbl.Parent = bg
-        return row
-    end
-
-    -- ─────────────────────────────────────────────────────────────
-    --  TAB SYSTEM
-    -- ─────────────────────────────────────────────────────────────
     local tabs = {}
-    local tabBtns = {}
+    local tabButtons = {}
 
-    local function createTab(name, icon, col)
-        local isFirst = (#tabBtns == 0)
-        local tabCol = col or C.Gold
+    local function createTab(name, icon)
+        local isFirst = (#tabButtons == 0)
 
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0, 0, 1, -8)
-        btn.Position = UDim2.new(0, 0, 0, 4)
-        btn.AutomaticSize = Enum.AutomaticSize.X
-        btn.BackgroundColor3 = tabCol
-        btn.BackgroundTransparency = isFirst and 0.88 or 1
-        btn.Text = ""
-        btn.AutoButtonColor = false
-        btn.Parent = ribbonRow
-        corner(btn, UDim.new(0, 8))
+        local tabBtn = Instance.new("TextButton")
+        tabBtn.Size = UDim2.new(0, 130, 0, 30)
+        tabBtn.BackgroundColor3 = isFirst and Color3.fromRGB(255, 180, 0) or Color3.fromRGB(31, 31, 31)
+        tabBtn.Text = icon .. " " .. name
+        tabBtn.TextColor3 = isFirst and Color3.fromRGB(14, 14, 14) or Color3.fromRGB(180, 180, 180)
+        tabBtn.Font = Enum.Font.GothamBold
+        tabBtn.TextSize = 12
+        tabBtn.Parent = ribbonFrame
 
-        local bpad = Instance.new("UIPadding")
-        bpad.PaddingLeft=UDim.new(0,12) bpad.PaddingRight=UDim.new(0,12)
-        bpad.PaddingTop=UDim.new(0,4) bpad.PaddingBottom=UDim.new(0,4)
-        bpad.Parent = btn
-
-        local brow = Instance.new("Frame")
-        brow.Size = UDim2.new(1,0,1,0)
-        brow.BackgroundTransparency = 1
-        brow.Parent = btn
-        
-        local browList = Instance.new("UIListLayout")
-        browList.Padding = UDim.new(0, 5)
-        browList.FillDirection = Enum.FillDirection.Horizontal
-        browList.Parent = brow
-
-        local ic = Instance.new("TextLabel")
-        ic.Size = UDim2.new(0,16,1,0)
-        ic.BackgroundTransparency=1
-        ic.Text=icon ic.TextSize=13
-        ic.Font=Enum.Font.GothamBold
-        ic.TextColor3 = isFirst and tabCol or C.TextSec
-        ic.Parent=brow
-
-        local nm = Instance.new("TextLabel")
-        nm.Size=UDim2.new(0,0,1,0) nm.AutomaticSize=Enum.AutomaticSize.X
-        nm.BackgroundTransparency=1
-        nm.Text=name nm.Font=Enum.Font.GothamBold nm.TextSize=12
-        nm.TextColor3 = isFirst and tabCol or C.TextSec
-        nm.Parent=brow
-
-        local ind = Instance.new("Frame")
-        ind.Size = UDim2.new(isFirst and 1 or 0, 0, 0, 2)
-        ind.Position = UDim2.new(0,0,1,-2)
-        ind.BackgroundColor3 = tabCol
-        ind.BorderSizePixel=0
-        ind.Parent=btn
-        corner(ind, UDim.new(1,0))
+        local btnCorner = Instance.new("UICorner")
+        btnCorner.CornerRadius = UDim.new(0, 8)
+        btnCorner.Parent = tabBtn
 
         local page = Instance.new("ScrollingFrame")
-        page.Size=UDim2.new(1,0,1,0)
-        page.BackgroundTransparency=1
-        page.BorderSizePixel=0
-        page.ScrollBarThickness=3
-        page.ScrollBarImageColor3=C.Border1
-        page.CanvasSize=UDim2.new(0,0,0,0)
-        page.AutomaticCanvasSize=Enum.AutomaticSize.Y
-        page.Visible=isFirst
-        page.Parent=contentArea
-        pad(page, 14, 12)
-        list(page, 8)
+        page.Size = UDim2.new(1, -28, 1, -20)
+        page.Position = UDim2.new(0, 14, 0, 10)
+        page.BackgroundTransparency = 1
+        page.BorderSizePixel = 0
+        page.ScrollBarThickness = 3
+        page.ScrollBarImageColor3 = Color3.fromRGB(255, 180, 0)
+        page.CanvasSize = UDim2.new(0, 0, 0, 0)
+        page.AutomaticCanvasSize = Enum.AutomaticCanvasSize.Y
+        page.Visible = isFirst
+        page.Parent = contentFrame
 
-        tabs[name]=page
-        table.insert(tabBtns, {Button=btn, Page=page, Name=name, Icon=ic, Label=nm, Ind=ind, Col=tabCol})
+        local pageList = Instance.new("UIListLayout")
+        pageList.Padding = UDim.new(0, 12)
+        pageList.SortOrder = Enum.SortOrder.LayoutOrder
+        pageList.Parent = page
 
-        btn.MouseButton1Click:Connect(function()
-            for _, tb in ipairs(tabBtns) do
-                local a = (tb.Name==name)
-                tb.Page.Visible=a
-                tw(tb.Ind,   {Size=UDim2.new(a and 1 or 0,0,0,2)})
-                tw(tb.Icon,  {TextColor3 = a and tb.Col or C.TextSec})
-                tw(tb.Label, {TextColor3 = a and tb.Col or C.TextSec})
-                tw(tb.Button,{BackgroundTransparency = a and 0.88 or 1, BackgroundColor3 = a and tb.Col or Color3.new(0,0,0)})
+        tabs[name] = page
+        table.insert(tabButtons, { Button = tabBtn, Page = page, Name = name })
+
+        tabBtn.MouseButton1Click:Connect(function()
+            for _, tb in ipairs(tabButtons) do
+                local active = (tb.Name == name)
+                tb.Page.Visible = active
+                tb.Button.BackgroundColor3 = active and Color3.fromRGB(255, 180, 0) or Color3.fromRGB(31, 31, 31)
+                tb.Button.TextColor3 = active and Color3.fromRGB(14, 14, 14) or Color3.fromRGB(180, 180, 180)
             end
         end)
+
         return page
     end
 
-    -- ─────────────────────────────────────────────────────────────
-    --  TAB 1 — AUTO FARM
-    -- ─────────────────────────────────────────────────────────────
-    local farmPage = createTab("Auto Farm", "🌾", C.Green)
-    sectionLabel(farmPage, "CORE AUTOMATION")
-    createToggle(farmPage, "Auto Train  —  Activate Dumbell",    Config.AutoTrain,    function(s) Config.AutoTrain=s;    if s then Farm.startAutoTrain()    else Farm.stopAutoTrain()    end end)
-    createToggle(farmPage, "Auto Sell  —  Sell All Friends",     Config.AutoSell,     function(s) Config.AutoSell=s;     if s then Farm.startAutoSell()     else Farm.stopAutoSell()     end end)
-    createToggle(farmPage, "Auto Rebirth",                       Config.AutoRebirth,  function(s) Config.AutoRebirth=s;  if s then Farm.startAutoRebirth()  else Farm.stopAutoRebirth()  end end)
-    sectionLabel(farmPage, "UPGRADES")
-    createToggle(farmPage, "💪 Auto Buy Dumbbells",              Config.AutoBuyDumbell,  function(s) Config.AutoBuyDumbell=s;  if s then Farm.startAutoBuyDumbell()  else Farm.stopAutoBuyDumbell()  end end)
-    createToggle(farmPage, "🎒 Auto Upgrade Carry Limit",        Config.AutoUpgradeCarry, function(s) Config.AutoUpgradeCarry=s; if s then Farm.startAutoUpgradeCarry() else Farm.stopAutoUpgradeCarry() end end)
-    sectionLabel(farmPage, "EGG PULLING")
-    createToggle(farmPage, "Auto Pull Egg  —  Target Tier",      Config.AutoPullEgg,  function(s) Config.AutoPullEgg=s;  if s then Farm.startAutoPullEgg()  else Farm.stopAutoPullEgg()  end end)
-    createToggle(farmPage, "🛡️ Safe Fly / Hover  —  Dodge Boss", Config.SafeHover,    function(s) Config.SafeHover=s;    if not s then Farm.setFloat(false) Farm.setNoclip(false) end end)
+    local function createPanelSection(page, sectionTitle)
+        local outerCard = Instance.new("Frame")
+        outerCard.Size = UDim2.new(1, 0, 0, 0)
+        outerCard.AutomaticSize = Enum.AutomaticSize.Y
+        outerCard.BackgroundColor3 = Color3.fromRGB(23, 23, 23)
+        outerCard.BorderSizePixel = 0
+        outerCard.Parent = page
 
-    -- ─────────────────────────────────────────────────────────────
-    --  TAB 2 — EGGS & ESP
-    -- ─────────────────────────────────────────────────────────────
-    local eggPage = createTab("Eggs & ESP", "🥚", C.Purple)
-    sectionLabel(eggPage, "VISUAL")
-    createToggle(eggPage, "🔮 Egg 3D Billboard ESP", Config.EggESP, function(s) Config.EggESP=s; ESP.setEnabled(s) end)
-    sectionLabel(eggPage, "TELEPORT TO TIER")
+        local outerCorner = Instance.new("UICorner")
+        outerCorner.CornerRadius = UDim.new(0, 16)
+        outerCorner.Parent = outerCard
+
+        local outerStroke = Instance.new("UIStroke")
+        outerStroke.Color = Color3.fromRGB(40, 40, 40)
+        outerStroke.Thickness = 1
+        outerStroke.Parent = outerCard
+
+        local outerLayout = Instance.new("UIListLayout")
+        outerLayout.Padding = UDim.new(0, 8)
+        outerLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        outerLayout.Parent = outerCard
+
+        local outerPadding = Instance.new("UIPadding")
+        outerPadding.PaddingTop = UDim.new(0, 12)
+        outerPadding.PaddingBottom = UDim.new(0, 12)
+        outerPadding.PaddingLeft = UDim.new(0, 12)
+        outerPadding.PaddingRight = UDim.new(0, 12)
+        outerPadding.Parent = outerCard
+
+        local headerLabel = Instance.new("TextLabel")
+        headerLabel.Size = UDim2.new(1, 0, 0, 20)
+        headerLabel.BackgroundTransparency = 1
+        headerLabel.Text = sectionTitle:upper()
+        headerLabel.TextColor3 = Color3.fromRGB(255, 180, 0)
+        headerLabel.Font = Enum.Font.GothamBold
+        headerLabel.TextSize = 11
+        headerLabel.TextXAlignment = Enum.TextXAlignment.Left
+        headerLabel.Parent = outerCard
+
+        return outerCard
+    end
+
+    local function createToggleCard(outerSection, labelText, defaultState, onToggle)
+        local innerCard = Instance.new("Frame")
+        innerCard.Size = UDim2.new(1, 0, 0, 42)
+        innerCard.BackgroundColor3 = Color3.fromRGB(31, 31, 31)
+        innerCard.BorderSizePixel = 0
+        innerCard.Parent = outerSection
+
+        local innerCorner = Instance.new("UICorner")
+        innerCorner.CornerRadius = UDim.new(0, 10)
+        innerCorner.Parent = innerCard
+
+        local innerStroke = Instance.new("UIStroke")
+        innerStroke.Color = Color3.fromRGB(45, 45, 45)
+        innerStroke.Thickness = 1
+        innerStroke.Parent = innerCard
+
+        local label = Instance.new("TextLabel")
+        label.Position = UDim2.new(0, 12, 0, 0)
+        label.Size = UDim2.new(1, -70, 1, 0)
+        label.BackgroundTransparency = 1
+        label.Text = labelText
+        label.TextColor3 = Color3.fromRGB(230, 230, 230)
+        label.Font = Enum.Font.GothamMedium
+        label.TextSize = 12
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.Parent = innerCard
+
+        local toggleBtn = Instance.new("TextButton")
+        toggleBtn.Position = UDim2.new(1, -52, 0.5, -11)
+        toggleBtn.Size = UDim2.new(0, 42, 0, 22)
+        toggleBtn.BackgroundColor3 = defaultState and Color3.fromRGB(255, 180, 0) or Color3.fromRGB(45, 45, 45)
+        toggleBtn.Text = defaultState and "ON" or "OFF"
+        toggleBtn.TextColor3 = defaultState and Color3.fromRGB(14, 14, 14) or Color3.fromRGB(160, 160, 160)
+        toggleBtn.Font = Enum.Font.GothamBold
+        toggleBtn.TextSize = 10
+        toggleBtn.Parent = innerCard
+
+        local toggleCorner = Instance.new("UICorner")
+        toggleCorner.CornerRadius = UDim.new(0, 11)
+        toggleCorner.Parent = toggleBtn
+
+        local state = defaultState
+        toggleBtn.MouseButton1Click:Connect(function()
+            state = not state
+            toggleBtn.BackgroundColor3 = state and Color3.fromRGB(255, 180, 0) or Color3.fromRGB(45, 45, 45)
+            toggleBtn.TextColor3 = state and Color3.fromRGB(14, 14, 14) or Color3.fromRGB(160, 160, 160)
+            toggleBtn.Text = state and "ON" or "OFF"
+            if onToggle then onToggle(state) end
+        end)
+
+        return innerCard
+    end
+
+    local function createButtonCard(outerSection, labelText, btnColor, onClick)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1, 0, 0, 38)
+        btn.BackgroundColor3 = btnColor or Color3.fromRGB(31, 31, 31)
+        btn.Text = labelText
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 12
+        btn.Parent = outerSection
+
+        local btnCorner = Instance.new("UICorner")
+        btnCorner.CornerRadius = UDim.new(0, 10)
+        btnCorner.Parent = btn
+
+        local btnStroke = Instance.new("UIStroke")
+        btnStroke.Color = Color3.fromRGB(50, 50, 50)
+        btnStroke.Thickness = 1
+        btnStroke.Parent = btn
+
+        btn.MouseButton1Click:Connect(function()
+            if onClick then onClick() end
+        end)
+        return btn
+    end
+
+    -- Tab 1: Auto Farm
+    local farmPage = createTab("Auto Farm", "🌾")
+
+    local mainFarmSec = createPanelSection(farmPage, "Core Automation")
+    createToggleCard(mainFarmSec, "Auto Train (Activate Dumbbell)", Config.AutoTrain, function(s)
+        Config.AutoTrain = s
+        if s then Farm.startAutoTrain() else Farm.stopAutoTrain() end
+    end)
+    createToggleCard(mainFarmSec, "Auto Sell (Sell All Friends)", Config.AutoSell, function(s)
+        Config.AutoSell = s
+        if s then Farm.startAutoSell() else Farm.stopAutoSell() end
+    end)
+    createToggleCard(mainFarmSec, "Auto Rebirth", Config.AutoRebirth, function(s)
+        Config.AutoRebirth = s
+        if s then Farm.startAutoRebirth() else Farm.stopAutoRebirth() end
+    end)
+
+    local upgradeSec = createPanelSection(farmPage, "Upgrades & Progression")
+    createToggleCard(upgradeSec, "Auto Buy Dumbbells", Config.AutoBuyDumbell, function(s)
+        Config.AutoBuyDumbell = s
+        if s then Farm.startAutoBuyDumbell() else Farm.stopAutoBuyDumbell() end
+    end)
+    createToggleCard(upgradeSec, "Auto Upgrade Carry Limit", Config.AutoUpgradeCarry, function(s)
+        Config.AutoUpgradeCarry = s
+        if s then Farm.startAutoUpgradeCarry() else Farm.stopAutoUpgradeCarry() end
+    end)
+    createToggleCard(upgradeSec, "Auto Pull Egg (Target Tier)", Config.AutoPullEgg, function(s)
+        Config.AutoPullEgg = s
+        if s then Farm.startAutoPullEgg() else Farm.stopAutoPullEgg() end
+    end)
+
+    local safetySec = createPanelSection(farmPage, "Safety & Combat")
+    createToggleCard(safetySec, "Safe Fly / Hover (Dodge Boss)", Config.SafeHover, function(s)
+        Config.SafeHover = s
+        if not s then
+            Farm.setFloat(false)
+            Farm.setNoclip(false)
+        end
+    end)
+    createToggleCard(safetySec, "Auto Revive (Instant Respawn)", Config.AutoRevive, function(s)
+        Config.AutoRevive = s
+    end)
+
+    -- Tab 2: Eggs & ESP
+    local eggPage = createTab("Eggs & ESP", "🥚")
+
+    local espSec = createPanelSection(eggPage, "Visual Tracking")
+    createToggleCard(espSec, "Egg 3D Billboard ESP", Config.EggESP, function(s)
+        Config.EggESP = s
+        ESP.setEnabled(s)
+    end)
+
+    local tpSec = createPanelSection(eggPage, "Teleport to Egg Tier")
     for _, tier in ipairs(Config.TIERS) do
-        local col = Config.TIER_COLORS[tier] or C.TextSec
-        createButton(eggPage, "📍  " .. tier .. " Egg", col, function()
-            Config.TargetEggTier = tier; Farm.teleportToTier(tier)
+        createButtonCard(tpSec, "📍 Teleport to Tier: " .. tier, Color3.fromRGB(31, 31, 31), function()
+            Config.TargetEggTier = tier
+            Farm.teleportToTier(tier)
         end)
     end
 
-    -- ─────────────────────────────────────────────────────────────
-    --  TAB 3 — MISC
-    -- ─────────────────────────────────────────────────────────────
-    local miscPage = createTab("Misc", "⚙️", C.Blue)
-    sectionLabel(miscPage, "REWARDS")
-    createButton(miscPage, "🎁  Claim Daily & Group Rewards", C.Green,    function() Remotes.fire("Claim Daily Reward") Remotes.fire("Claim Group Reward") end)
-    createButton(miscPage, "💰  Sell All Friends (Manual)",   C.Blue,     function() Remotes.fire("Sell All Friends") end)
-    sectionLabel(miscPage, "QUICK TELEPORT")
-    createButton(miscPage, "🏠  Teleport to Spawn",           C.TextSec,  function() Farm.teleportToSpawn() end)
-    createButton(miscPage, "🛒  Teleport to Sell Shop",       C.TextSec,  function() Farm.teleportToShop("Sell") end)
-    createButton(miscPage, "⚡  Teleport to Strength Shop",   C.TextSec,  function() Farm.teleportToShop("ShopSpeed") end)
-    createButton(miscPage, "🎒  Teleport to Carry Shop",      C.TextSec,  function() Farm.teleportToShop("ShopCarry") end)
-    sectionLabel(miscPage, "SYSTEM")
-    createButton(miscPage, "❌  Unload Script",               C.Red,      function() Runtime.Unload() end)
+    -- Tab 3: Misc & Rewards
+    local miscPage = createTab("Misc", "⚙️")
 
-    -- ─────────────────────────────────────────────────────────────
-    --  TAB 4 — UNIVERSAL
-    -- ─────────────────────────────────────────────────────────────
-    local uniPage = createTab("Universal", "🌐", C.Gold)
-    sectionLabel(uniPage, "PROTECTION")
-    createToggle(uniPage, "🔒 Anti-AFK  —  Kick Prevention",     Config.AntiAFK,     function(s) Config.AntiAFK=s;     Universal.setAntiAFK(s) end)
-    sectionLabel(uniPage, "PERFORMANCE")
-    createToggle(uniPage, "🎨 Low Graphics Mode  —  Better FPS", Config.LowGraphics, function(s) Config.LowGraphics=s; Universal.setLowGraphics(s) end)
-    createToggle(uniPage, "⚡ Speed Boost  —  WalkSpeed " .. Config.WalkSpeed, Config.SpeedBoost, function(s) Config.SpeedBoost=s; Universal.setSpeed(s) end)
-    sectionLabel(uniPage, "SERVER")
-    createButton(uniPage, "🔄  Rejoin Same Server",              C.Blue,   function() Universal.rejoin() end)
-    createButton(uniPage, "🌐  Server Hop  —  New Server",       C.Purple, function() Universal.serverHop() end)
+    local rewardSec = createPanelSection(miscPage, "Automated Rewards")
+    createButtonCard(rewardSec, "🎁 Claim Daily & Group Rewards", Color3.fromRGB(31, 31, 31), function()
+        Remotes.claimDailyReward()
+        Remotes.claimGroupReward()
+    end)
+    createButtonCard(rewardSec, "💰 Sell All Friends Once (Manual)", Color3.fromRGB(31, 31, 31), function()
+        Remotes.sellAll()
+    end)
+
+    local navSec = createPanelSection(miscPage, "Quick Teleports")
+    createButtonCard(navSec, "🏠 Teleport to Spawn Point", Color3.fromRGB(31, 31, 31), function()
+        Farm.teleportToSpawn()
+    end)
+    createButtonCard(navSec, "🛒 Teleport to Sell Shop", Color3.fromRGB(31, 31, 31), function()
+        Farm.teleportToShop("Sell")
+    end)
+    createButtonCard(navSec, "⚡ Teleport to Strength Shop", Color3.fromRGB(31, 31, 31), function()
+        Farm.teleportToShop("ShopSpeed")
+    end)
+    createButtonCard(navSec, "🎒 Teleport to Carry Shop", Color3.fromRGB(31, 31, 31), function()
+        Farm.teleportToShop("ShopCarry")
+    end)
 
     screenGui.Parent = parent
     toggleGui.Parent = parent
-    table.insert(Runtime.Instances, screenGui)
-    table.insert(Runtime.Instances, toggleGui)
+    UI.ScreenGui = screenGui
+    UI.ToggleGui = toggleGui
+    UI.MainFrame = main
 end
 
--- ── 6. Universal Utilities Module ───────────────────────────────────
-local Universal = {}
-do
-    local TeleportService = game:GetService("TeleportService")
-    local HttpService     = game:GetService("HttpService")
-    local _afkConn = nil
-
-    -- Anti-AFK -----------------------------------------------------------
-    function Universal.setAntiAFK(enable)
-        if _afkConn then
-            pcall(function() _afkConn:Disconnect() end)
-            _afkConn = nil
-        end
-        if enable then
-            _afkConn = LocalPlayer.Idled:Connect(function()
-                pcall(function()
-                    local vu = game:GetService("VirtualUser")
-                    vu:CaptureController()
-                    vu:ClickButton2(Vector2.new())
-                end)
-            end)
-            Runtime.trackConnection(_afkConn)
-        end
-    end
-
-    function Universal.stopAntiAFK()
-        if _afkConn then
-            pcall(function() _afkConn:Disconnect() end)
-            _afkConn = nil
-        end
-    end
-
-    -- Speed Boost ---------------------------------------------------------
-    local _speedConn = nil
-    local function applySpeed()
-        pcall(function()
-            local char = LocalPlayer.Character
-            if not char then return end
-            local hum = char:FindFirstChildWhichIsA("Humanoid")
-            if hum then
-                hum.WalkSpeed = Config.WalkSpeed
-                hum.JumpPower = Config.JumpPower
-            end
-        end)
-    end
-
-    function Universal.setSpeed(enable)
-        if _speedConn then
-            pcall(function() _speedConn:Disconnect() end)
-            _speedConn = nil
-        end
-        if enable then
-            applySpeed()
-            _speedConn = LocalPlayer.CharacterAdded:Connect(function(char)
-                task.wait(0.5)
-                applySpeed()
-            end)
-            Runtime.trackConnection(_speedConn)
-        else
-            pcall(function()
-                local char = LocalPlayer.Character
-                if not char then return end
-                local hum = char:FindFirstChildWhichIsA("Humanoid")
-                if hum then
-                    hum.WalkSpeed = 16
-                    hum.JumpPower = 50
-                end
-            end)
-        end
-    end
-
-    function Universal.stopSpeed()
-        Universal.setSpeed(false)
-    end
-
-    -- Low Graphics -------------------------------------------------------
-    local _origQuality = nil
-    function Universal.setLowGraphics(enable)
-        pcall(function()
-            local settings = UserSettings():GetService("UserGameSettings")
-            if enable then
-                _origQuality = settings.SavedQualityLevel
-                settings.SavedQualityLevel = Enum.SavedQualitySetting.QualityLevel1
-                game:GetService("RunService"):Set3dRenderingEnabled(false)
-            else
-                game:GetService("RunService"):Set3dRenderingEnabled(true)
-                if _origQuality then
-                    settings.SavedQualityLevel = _origQuality
-                    _origQuality = nil
-                end
-            end
-        end)
-        pcall(function()
-            local lighting = game:GetService("Lighting")
-            if enable then
-                lighting.GlobalShadows  = false
-                lighting.FogEnd         = 9e4
-                lighting.FogStart       = 9e4
-            else
-                lighting.GlobalShadows  = true
-            end
-        end)
-    end
-
-    -- Rejoin -------------------------------------------------------------
-    function Universal.rejoin()
-        local placeId = game.PlaceId
-        local jobId   = game.JobId
-        pcall(function()
-            local qot = (syn and syn.queue_on_teleport)
-                or (typeof(queue_on_teleport) == "function" and queue_on_teleport)
-                or (Fluxus and Fluxus.queue_on_teleport)
-            if qot then
-                qot(string.format([[
-                    task.wait(3)
-                    pcall(function()
-                        loadstring(game:HttpGet("%s"))()
-                    end)
-                ]], SCRIPT_RAW_URL))
-            end
-        end)
-        pcall(function()
-            TeleportService:TeleportToPlaceInstance(placeId, jobId, LocalPlayer)
-        end)
-    end
-
-    -- Server Hop ---------------------------------------------------------
-    function Universal.serverHop()
-        local placeId = game.PlaceId
-        pcall(function()
-            local qot = (syn and syn.queue_on_teleport)
-                or (typeof(queue_on_teleport) == "function" and queue_on_teleport)
-                or (Fluxus and Fluxus.queue_on_teleport)
-            if qot then
-                qot(string.format([[
-                    task.wait(3)
-                    pcall(function()
-                        loadstring(game:HttpGet("%s"))()
-                    end)
-                ]], SCRIPT_RAW_URL))
-            end
-        end)
-        task.spawn(function()
-            local ok, servers = pcall(function()
-                local url = ("https://games.roblox.com/v1/games/%d/servers/Public?limit=100"):format(placeId)
-                local raw = game:HttpGet(url)
-                return HttpService:JSONDecode(raw)
-            end)
-            local currentJob = game.JobId
-            if ok and servers and servers.data then
-                for _, srv in ipairs(servers.data) do
-                    if srv.id ~= currentJob and srv.playing and srv.maxPlayers
-                        and srv.playing < srv.maxPlayers then
-                        pcall(function()
-                            TeleportService:TeleportToPlaceInstance(placeId, srv.id, LocalPlayer)
-                        end)
-                        return
-                    end
-                end
-            end
-            pcall(function()
-                TeleportService:Teleport(placeId, LocalPlayer)
-            end)
-        end)
-    end
+function UI.destroy()
+    if UI.ScreenGui then UI.ScreenGui:Destroy() end
+    if UI.ToggleGui then UI.ToggleGui:Destroy() end
 end
 
--- ── 7. Startup ──────────────────────────────────────────────────────
-Universal.setAntiAFK(Config.AntiAFK)
+-- ===================================================================
+-- 6. APPLICATION INITIALIZATION (BOOTSTRAP)
+-- ===================================================================
+local function startSuite()
+    print("[LuxuryXHUB] Initializing Pull An Egg Module...")
 
-task.spawn(function()
-    task.wait(2)
-    if Runtime.Running then
-        Remotes.fire("Claim Daily Reward")
-        Remotes.fire("Claim Group Reward")
+    -- Initialize core logic
+    Farm.init(Config, Remotes)
+    ESP.init(Config)
+    UI.init(Config, Farm, ESP, Remotes)
+
+    -- Anti-AFK Protection
+    LocalPlayer.Idled:Connect(function()
+        local VirtualUser = game:GetService("VirtualUser")
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+        Remotes.resetAFK()
+    end)
+
+    -- Auto Claim Initial Rewards
+    task.spawn(function()
+        task.wait(2)
+        Remotes.claimDailyReward()
+        Remotes.claimGroupReward()
+    end)
+
+    -- Clear previous instance
+    if getgenv().LuxuryXHUB_PullAnEgg and typeof(getgenv().LuxuryXHUB_PullAnEgg.Unload) == "function" then
+        pcall(function() getgenv().LuxuryXHUB_PullAnEgg.Unload() end)
     end
-end)
 
-ESP.init()
-buildUI()
+    local Runtime = {
+        Unload = function()
+            Farm.stopAutoTrain()
+            Farm.stopAutoSell()
+            Farm.stopAutoRebirth()
+            Farm.stopAutoPullEgg()
+            ESP.destroy()
+            UI.destroy()
+            getgenv().LuxuryXHUB_PullAnEgg = nil
+            print("[LuxuryXHUB] ♻️ Cleared previous Pull An Egg instance.")
+        end
+    }
+    getgenv().LuxuryXHUB_PullAnEgg = Runtime
 
-function Runtime.Unload()
-    Runtime.Running = false
-    Config.AutoTrain = false
-    Config.AutoSell = false
-    Config.AutoRebirth = false
-    Config.AutoBuyDumbell = false
-    Config.AutoUpgradeCarry = false
-    Config.AutoPullEgg = false
-
-    Universal.stopAntiAFK()
-    Universal.stopSpeed()
-    if Config.LowGraphics then
-        Universal.setLowGraphics(false)
-    end
-
-    for _, th in pairs(Farm.Threads) do
-        pcall(task.cancel, th)
-    end
-    Farm.Threads = {}
-
-    for _, conn in ipairs(Runtime.Connections) do
-        pcall(function() conn:Disconnect() end)
-    end
-    Runtime.Connections = {}
-
-    Farm.setFloat(false)
-    Farm.setNoclip(false)
-
-    ESP.destroy()
-
-    for _, inst in ipairs(Runtime.Instances) do
-        pcall(function() inst:Destroy() end)
-    end
-    Runtime.Instances = {}
-
-    local parent = getGuiParent()
-    local old1 = parent:FindFirstChild("LuxuryXHUB_PullAnEgg")
-    if old1 then old1:Destroy() end
-    local old2 = parent:FindFirstChild("LuxuryXHUB_FloatingBtn")
-    if old2 then old2:Destroy() end
-
-    getgenv().LuxuryXHUB_PullAnEgg = nil
-    print("[LuxuryXHUB] ♻️ Previous script instance cleared successfully!")
+    print("[LuxuryXHUB] ✓ Pull An Egg Automation Suite Loaded Successfully!")
 end
 
-getgenv().LuxuryXHUB_PullAnEgg = Runtime
-
-print("[LuxuryXHUB] ✓ Pull An Egg Suite Loaded Successfully! Press [LeftControl] or click 🐾 to toggle menu.")
+startSuite()
