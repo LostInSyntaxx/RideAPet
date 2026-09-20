@@ -82,7 +82,7 @@ function UI.build()
     title.Position = UDim2.new(0, 16, 0, 0)
     title.Size = UDim2.new(0, 200, 1, 0)
     title.BackgroundTransparency = 1
-    title.Text = "🐾 LuxuryXHUB"
+    title.Text = "LuxuryXHUB"
     title.TextColor3 = Color3.fromRGB(255, 180, 0)
     title.Font = Enum.Font.GothamBold
     title.TextSize = 17
@@ -299,6 +299,14 @@ function UI.build()
     createToggle(farmPage, "Auto Pull Egg (Target Tier)", Config.AutoPullEgg, function(s)
         Config.AutoPullEgg = s
         if s then Farm.startAutoPullEgg() else Farm.stopAutoPullEgg() end
+    end)
+
+    createToggle(farmPage, "🛡️ Safe Fly / Hover (Dodge Boss)", Config.SafeHover, function(s)
+        Config.SafeHover = s
+        if not s then
+            Farm.setFloat(false)
+            Farm.setNoclip(false)
+        end
     end)
 
     -- ── Tab 2: Eggs & ESP ────────────────────────────────────────────

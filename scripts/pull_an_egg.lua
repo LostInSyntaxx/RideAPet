@@ -34,6 +34,8 @@ local Config = {
 
     AutoPullEgg     = false,
     TargetEggTier   = "Celestial",
+    FlyHeight       = 16,
+    SafeHover       = true,
 
     EggESP          = true,
 
@@ -107,12 +109,67 @@ end
 
 -- ── 3. Farm & Movement Engine ───────────────────────────────────────
 local Farm = { Threads = {} }
+local floatVelocity = nil
+local noclipConnection = nil
 
-function Farm.teleportTo(cf)
+function Farm.setFloat(enabled)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    if enabled then
+        if not floatVelocity or floatVelocity.Parent ~= root then
+            floatVelocity = Instance.new("BodyVelocity")
+            floatVelocity.Name = "LuxuryXHUB_Float"
+            floatVelocity.Velocity = Vector3.new(0, 0, 0)
+            floatVelocity.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+            floatVelocity.Parent = root
+        end
+    else
+        if floatVelocity then
+            floatVelocity:Destroy()
+            floatVelocity = nil
+        end
+        local old = root:FindFirstChild("LuxuryXHUB_Float")
+        if old then old:Destroy() end
+    end
+end
+
+function Farm.setNoclip(enabled)
+    if noclipConnection then
+        noclipConnection:Disconnect()
+        noclipConnection = nil
+    end
+    if enabled then
+        noclipConnection = RunService.Stepped:Connect(function()
+            local char = LocalPlayer.Character
+            if char then
+                for _, part in ipairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") and part.CanCollide then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    else
+        local char = LocalPlayer.Character
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                    part.CanCollide = true
+                end
+            end
+        end
+    end
+end
+
+function Farm.teleportTo(cf, heightOffset)
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    local h = heightOffset or 3
     if root and cf then
-        root.CFrame = cf + Vector3.new(0, 3, 0)
+        root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+        root.CFrame = cf + Vector3.new(0, h, 0)
     end
 end
 
@@ -131,7 +188,11 @@ end
 function Farm.teleportToTier(tierName)
     local part = Farm.getPartForTier(tierName)
     if part then
-        Farm.teleportTo(part.CFrame)
+        local h = Config.FlyHeight or 16
+        Farm.teleportTo(part.CFrame, h)
+        if Config.SafeHover then
+            Farm.setFloat(true)
+        end
         return true
     end
     return false
@@ -191,23 +252,43 @@ end
 function Farm.startAutoPullEgg()
     if Farm.Threads["AutoPullEgg"] then return end
     Farm.Threads["AutoPullEgg"] = task.spawn(function()
+        if Config.SafeHover then
+            Farm.setFloat(true)
+            Farm.setNoclip(true)
+        end
+
         while Config.AutoPullEgg do
             local targetTier = Config.TargetEggTier or "Celestial"
             local part = Farm.getPartForTier(targetTier)
             if part then
+                local flyHeight = Config.FlyHeight or 16
                 local char = LocalPlayer.Character
                 local root = char and char:FindFirstChild("HumanoidRootPart")
-                if root and (root.Position - part.Position).Magnitude > 15 then
-                    Farm.teleportTo(part.CFrame)
-                    task.wait(0.3)
+                if root then
+                    local targetPos = part.Position + Vector3.new(0, flyHeight, 0)
+                    local dist = (root.Position - targetPos).Magnitude
+                    if dist > 8 then
+                        Farm.teleportTo(part.CFrame, flyHeight)
+                        task.wait(0.2)
+                    end
                 end
                 Remotes.invoke("Strange: Claim Egg", targetTier)
                 Remotes.fire("Activate Dumbell")
             end
             task.wait(0.2)
         end
+
+        Farm.setFloat(false)
+        Farm.setNoclip(false)
         Farm.Threads["AutoPullEgg"] = nil
     end)
+end
+
+function Farm.stopAutoPullEgg()
+    Config.AutoPullEgg = false
+    Farm.setFloat(false)
+    Farm.setNoclip(false)
+    Farm.Threads["AutoPullEgg"] = nil
 end
 
 -- ── 4. ESP Engine ───────────────────────────────────────────────────
@@ -564,7 +645,15 @@ local function buildUI()
 
     createToggle(farmPage, "Auto Pull Egg (Target Tier)", Config.AutoPullEgg, function(s)
         Config.AutoPullEgg = s
-        if s then Farm.startAutoPullEgg() end
+        if s then Farm.startAutoPullEgg() else Farm.stopAutoPullEgg() end
+    end)
+
+    createToggle(farmPage, "🛡️ Safe Fly / Hover (Dodge Boss)", Config.SafeHover, function(s)
+        Config.SafeHover = s
+        if not s then
+            Farm.setFloat(false)
+            Farm.setNoclip(false)
+        end
     end)
 
     -- Tab 2: Eggs & ESP

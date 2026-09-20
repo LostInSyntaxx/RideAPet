@@ -20,6 +20,8 @@ local Config = {
 
     AutoPullEgg     = false,
     TargetEggTier   = "Celestial", -- Default target tier
+    FlyHeight       = 16,          -- Safe height above egg to dodge boss attacks
+    SafeHover       = true,        -- Floats in mid-air above egg to stay immune to ground bosses
 
     EggESP          = true,
 
