@@ -20,6 +20,7 @@ local Config = {
 
     AutoBuyDumbell  = false,
     AutoUpgradeCarry= false,
+    AutoRevive      = true, -- Automatically click Yes to revive instantly without waiting 8s
 
     AutoPullEgg     = false,
     TargetEggTier   = "Celestial", -- Default target tier

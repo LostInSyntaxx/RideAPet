@@ -94,4 +94,14 @@ function Remotes.buyDumbell(nameOrIndex)
     return Remotes.fireEvent("Buy Dumbell", dumbellId)
 end
 
+-- 10. Place Friend on Plot
+function Remotes.placeFriend(uuid, x, z)
+    return Remotes.fireEvent("Place Friend", uuid, x or 0, z or 0)
+end
+
+-- 11. Open Lucky Block
+function Remotes.openLuckyBlock(uuid)
+    return Remotes.fireEvent("Open Lucky Block", uuid)
+end
+
 return Remotes

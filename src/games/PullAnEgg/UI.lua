@@ -393,6 +393,10 @@ function UI.build()
         end
     end)
 
+    createToggle(farmPage, "💖 Auto Revive (Instant Respawn)", Config.AutoRevive, function(s)
+        Config.AutoRevive = s
+    end)
+
     -- ── Tab 2: Eggs & ESP ────────────────────────────────────────────
     local eggPage = createTab("Eggs & ESP", "🥚")
 

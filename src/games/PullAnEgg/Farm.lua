@@ -17,6 +17,35 @@ local Remotes = nil
 function Farm.init(cfg, rems)
     Config = cfg
     Remotes = rems
+    Farm.hookAutoRevive()
+end
+
+function Farm.hookAutoRevive()
+    task.spawn(function()
+        while true do
+            if Config and Config.AutoRevive then
+                local pgui = LocalPlayer:FindFirstChild("PlayerGui")
+                local reviveGui = pgui and pgui:FindFirstChild("Revive")
+                if reviveGui and reviveGui.Enabled then
+                    local main = reviveGui:FindFirstChild("Main")
+                    local yes = main and main:FindFirstChild("Yes")
+                    if yes then
+                        if firesignal then
+                            firesignal(yes.MouseButton1Click)
+                        else
+                            pcall(function()
+                                local vim = game:GetService("VirtualInputManager")
+                                local pos = yes.AbsolutePosition + (yes.AbsoluteSize / 2)
+                                vim:SendMouseButtonEvent(pos.X, pos.Y, 0, true, game, 0)
+                                vim:SendMouseButtonEvent(pos.X, pos.Y, 0, false, game, 0)
+                            end)
+                        end
+                    end
+                end
+            end
+            task.wait(0.3)
+        end
+    end)
 end
 
 local RunService = game:GetService("RunService")

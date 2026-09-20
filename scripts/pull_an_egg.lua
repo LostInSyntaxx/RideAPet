@@ -62,6 +62,10 @@ local Config = {
 
     EggESP          = true,
 
+    -- Universal
+    AntiAFK         = true,
+    LowGraphics     = false,
+
     TIERS = {
         "Celestial",
         "Transcendent",
@@ -894,20 +898,183 @@ local function buildUI()
         Runtime.Unload()
     end)
 
+    -- ── Tab 4: Universal ─────────────────────────────────────────────
+    local uniPage = createTab("Universal", "🌐")
+
+    -- Section header
+    local uniHeader = Instance.new("TextLabel")
+    uniHeader.Size = UDim2.new(1, -8, 0, 28)
+    uniHeader.BackgroundColor3 = Color3.fromRGB(18, 20, 30)
+    uniHeader.BackgroundTransparency = 0
+    uniHeader.BorderSizePixel = 0
+    uniHeader.Text = "  🛡️  Universal Utilities"
+    uniHeader.TextColor3 = Color3.fromRGB(255, 170, 0)
+    uniHeader.Font = Enum.Font.GothamBold
+    uniHeader.TextSize = 12
+    uniHeader.TextXAlignment = Enum.TextXAlignment.Left
+    uniHeader.Parent = uniPage
+    Instance.new("UICorner", uniHeader).CornerRadius = UDim.new(0, 6)
+
+    -- Anti-AFK toggle (driven by Runtime.Universal)
+    createToggle(uniPage, "🔒 Anti-AFK (Auto Kick Prevention)", Config.AntiAFK, function(s)
+        Config.AntiAFK = s
+        Universal.setAntiAFK(s)
+    end)
+
+    -- Low Graphics Mode toggle
+    createToggle(uniPage, "🎨 Low Graphics Mode (Better FPS)", Config.LowGraphics, function(s)
+        Config.LowGraphics = s
+        Universal.setLowGraphics(s)
+    end)
+
+    -- Rejoin button
+    createButton(uniPage, "🔄 Rejoin Same Server", Color3.fromRGB(41, 128, 185), function()
+        Universal.rejoin()
+    end)
+
+    -- Server Hop button
+    createButton(uniPage, "🌐 Server Hop (New Server)", Color3.fromRGB(52, 73, 94), function()
+        Universal.serverHop()
+    end)
+
     screenGui.Parent = parent
     toggleGui.Parent = parent
     table.insert(Runtime.Instances, screenGui)
     table.insert(Runtime.Instances, toggleGui)
 end
 
--- ── 6. Anti-AFK & Lifecycle ─────────────────────────────────────────
-local afkConn = LocalPlayer.Idled:Connect(function()
-    local VirtualUser = game:GetService("VirtualUser")
-    VirtualUser:CaptureController()
-    VirtualUser:ClickButton2(Vector2.new())
-    Remotes.fire("AFK Idle Reset Request")
-end)
-Runtime.trackConnection(afkConn)
+-- ── 6. Universal Utilities Module ───────────────────────────────────
+local Universal = {}
+do
+    local TeleportService = game:GetService("TeleportService")
+    local HttpService     = game:GetService("HttpService")
+    local _afkConn = nil
+
+    -- Anti-AFK -----------------------------------------------------------
+    function Universal.setAntiAFK(enable)
+        if _afkConn then
+            pcall(function() _afkConn:Disconnect() end)
+            _afkConn = nil
+        end
+        if enable then
+            _afkConn = LocalPlayer.Idled:Connect(function()
+                pcall(function()
+                    local vu = game:GetService("VirtualUser")
+                    vu:CaptureController()
+                    vu:ClickButton2(Vector2.new())
+                end)
+            end)
+            Runtime.trackConnection(_afkConn)
+        end
+    end
+
+    function Universal.stopAntiAFK()
+        if _afkConn then
+            pcall(function() _afkConn:Disconnect() end)
+            _afkConn = nil
+        end
+    end
+
+    -- Low Graphics -------------------------------------------------------
+    local _origQuality = nil
+    function Universal.setLowGraphics(enable)
+        pcall(function()
+            local settings = UserSettings():GetService("UserGameSettings")
+            if enable then
+                _origQuality = settings.SavedQualityLevel
+                settings.SavedQualityLevel = Enum.SavedQualitySetting.QualityLevel1
+                game:GetService("RunService"):Set3dRenderingEnabled(false)
+            else
+                game:GetService("RunService"):Set3dRenderingEnabled(true)
+                if _origQuality then
+                    settings.SavedQualityLevel = _origQuality
+                    _origQuality = nil
+                end
+            end
+        end)
+        -- Lighting quality fallback (works in most executors)
+        pcall(function()
+            local lighting = game:GetService("Lighting")
+            if enable then
+                lighting.GlobalShadows  = false
+                lighting.FogEnd         = 9e4
+                lighting.FogStart       = 9e4
+            else
+                lighting.GlobalShadows  = true
+            end
+        end)
+    end
+
+    -- Rejoin -------------------------------------------------------------
+    function Universal.rejoin()
+        local placeId = game.PlaceId
+        local jobId   = game.JobId
+        -- Queue loader to re-inject after rejoin
+        pcall(function()
+            local qot = (syn and syn.queue_on_teleport)
+                or (typeof(queue_on_teleport) == "function" and queue_on_teleport)
+                or (Fluxus and Fluxus.queue_on_teleport)
+            if qot then
+                qot([[
+                    task.wait(3)
+                    pcall(function()
+                        loadstring(game:HttpGet("https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/main/loader.lua"))()
+                    end)
+                ]])
+            end
+        end)
+        pcall(function()
+            TeleportService:TeleportToPlaceInstance(placeId, jobId, LocalPlayer)
+        end)
+    end
+
+    -- Server Hop ---------------------------------------------------------
+    function Universal.serverHop()
+        local placeId = game.PlaceId
+        -- Queue loader after hop
+        pcall(function()
+            local qot = (syn and syn.queue_on_teleport)
+                or (typeof(queue_on_teleport) == "function" and queue_on_teleport)
+                or (Fluxus and Fluxus.queue_on_teleport)
+            if qot then
+                qot([[
+                    task.wait(3)
+                    pcall(function()
+                        loadstring(game:HttpGet("https://raw.githubusercontent.com/LostInSyntaxx/RideAPet/main/loader.lua"))()
+                    end)
+                ]])
+            end
+        end)
+        -- Find a different server via the game's server list
+        task.spawn(function()
+            local ok, servers = pcall(function()
+                local url = ("https://games.roblox.com/v1/games/%d/servers/Public?limit=100"):format(placeId)
+                local raw = game:HttpGet(url)
+                return HttpService:JSONDecode(raw)
+            end)
+            local currentJob = game.JobId
+            if ok and servers and servers.data then
+                for _, srv in ipairs(servers.data) do
+                    if srv.id ~= currentJob and srv.playing and srv.maxPlayers
+                        and srv.playing < srv.maxPlayers then
+                        pcall(function()
+                            TeleportService:TeleportToPlaceInstance(placeId, srv.id, LocalPlayer)
+                        end)
+                        return
+                    end
+                end
+            end
+            -- Fallback: teleport to a fresh server
+            pcall(function()
+                TeleportService:Teleport(placeId, LocalPlayer)
+            end)
+        end)
+    end
+end
+
+-- ── 7. Startup ──────────────────────────────────────────────────────
+-- Enable Anti-AFK immediately (it's on by default)
+Universal.setAntiAFK(Config.AntiAFK)
 
 -- Auto Claim on Startup
 task.spawn(function()
@@ -931,6 +1098,12 @@ function Runtime.Unload()
     Config.AutoBuyDumbell = false
     Config.AutoUpgradeCarry = false
     Config.AutoPullEgg = false
+
+    -- Universal cleanup
+    Universal.stopAntiAFK()
+    if Config.LowGraphics then
+        Universal.setLowGraphics(false)
+    end
 
     -- Stop all threads
     for _, th in pairs(Farm.Threads) do
