@@ -1,81 +1,116 @@
--- State.lua — StateStore
+--[[
+    LuxuryXHUB — State.lua
+    Global reactive state store.
+    Rewritten: added eggData clear in reset(), consistent naming, cleaner structure.
+]]
+
 local NS = getgenv().EggsESP
-local AppConfig = NS.Config
-local S = NS.Services
+local AppConfig  = NS.Config
+local S          = NS.Services
 
 local StateStore = {
-    mainESPActive = false,
-    autoBestEggActive = false, autoBestEggThread = nil,
-    autoFarmActive = false, autoFarmThread = nil,
-    autoRebirthActive = false, autoRebirthThread = nil,
-    missingRebirthEggs = {},
-    antiAFKActive = true,
-    movementActive = false,
-    isMobileMode = false,
-    isMinimized = false,
-    listeningForKey = false,
+    -- ESP
+    mainESPActive       = false,
 
-    movementMode = "AutoFarm",
-    currentSearchQuery = "",
-    sortMode = "Name",
-    tpKeybind = Enum.KeyCode.T,
+    -- Auto-Farm
+    autoFarmActive      = false,
+    autoFarmThread      = nil,
+    autoFarmEggs        = {},               -- [eggName] = true/false (selected)
+    autoFarmProcessed   = setmetatable({}, {__mode = "k"}),
 
-    autoFarmEggs = {},
-    autoFarmProcessed = setmetatable({}, { __mode = "k" }),
-    eggCooldowns = setmetatable({}, { __mode = "k" }),
-    eggData = setmetatable({}, { __mode = "k" }),
+    -- Best Egg
+    autoBestEggActive   = false,
+    autoBestEggThread   = nil,
 
-    farmHistory = {},
-    onHistoryUpdated = nil,
+    -- Rebirth
+    autoRebirthActive   = false,
+    autoRebirthThread   = nil,
+    missingRebirthEggs  = {},
 
-    sessionStartTime = os.time(),
-    totalEggsCollected = 0,
-    onTimeUpdated = nil,
+    -- Movement
+    movementActive      = false,
+    movementHumanoid    = nil,
+    movementMode        = "AutoFarm",       -- "AutoFarm" | "Teleport"
+    noclipConnection    = nil,
 
-    movementHumanoid = nil,
-    noclipConnection = nil,
-    antiAFKConnection = nil,
+    -- Egg data (weak — GC'd when egg is removed)
+    eggData             = setmetatable({}, {__mode = "k"}),
+    eggCooldowns        = setmetatable({}, {__mode = "k"}),
 
-    recentAlerts = {},
-    _connections = {},
-    _sliderCounter = 0,
-    windowMode = "PC",
-    screenGui = nil,
+    -- Anti-AFK
+    antiAFKActive       = true,
+    antiAFKConnection   = nil,
+
+    -- UI state
+    isMobileMode        = false,
+    isMinimized         = false,
+    listeningForKey     = false,
+    windowMode          = "PC",
+    screenGui           = nil,
+    currentSearchQuery  = "",
+    sortMode            = "Name",
+    tpKeybind           = Enum.KeyCode.T,
+
+    -- Session stats
+    sessionStartTime    = os.time(),
+    totalEggsCollected  = 0,
+    farmHistory         = {},
+    onHistoryUpdated    = nil,
+    onTimeUpdated       = nil,
+
+    -- Alerts
+    recentAlerts        = {},
+
+    -- Connection tracker
+    _connections        = {},
 }
 
+-- ── Track a RBXScriptConnection for bulk cleanup ─────────────────────
 function StateStore.track(conn)
     if not conn then return conn end
     table.insert(StateStore._connections, conn)
     return conn
 end
 
+-- ── Disconnect all tracked connections ───────────────────────────────
+function StateStore.disconnectAll()
+    for _, conn in ipairs(StateStore._connections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    table.clear(StateStore._connections)
+end
+
+-- ── Add an egg to the farm history log ───────────────────────────────
 function StateStore.addHistoryRecord(eggName)
-    local isRare = false
     local lower = eggName:lower()
+    local isRare = false
     for _, kw in ipairs(AppConfig.RareKeywords) do
-        if string.find(lower, kw, 1, true) then isRare = true; break end
+        if lower:find(kw, 1, true) then isRare = true; break end
     end
 
     table.insert(StateStore.farmHistory, 1, {
-        name = eggName, time = os.date("%H:%M:%S"), isRare = isRare
+        name  = eggName,
+        time  = os.date("%H:%M:%S"),
+        isRare = isRare,
     })
+
     if #StateStore.farmHistory > AppConfig.MaxHistoryLogs then
-        table.remove(StateStore.farmHistory)
+        StateStore.farmHistory[AppConfig.MaxHistoryLogs + 1] = nil
     end
 
-    StateStore.totalEggsCollected = StateStore.totalEggsCollected + 1
+    StateStore.totalEggsCollected += 1
+
     if StateStore.onHistoryUpdated then StateStore.onHistoryUpdated() end
 
-    -- ⭐ Webhook notification
-    if NS.Webhook then
+    -- Webhook notification (fire-and-forget — never blocks the caller)
+    if NS.Webhook and NS.Webhook.Config and NS.Webhook.Config.Enabled then
         task.spawn(function()
-            pcall(function()
-                NS.Webhook.NotifyEggCollected(eggName, isRare)
-            end)
+            pcall(function() NS.Webhook.NotifyEggCollected(eggName, isRare) end)
         end)
     end
 end
 
+-- ── Deduplication guard for rare-egg alerts ──────────────────────────
 function StateStore.shouldAlert(eggName)
     local now = os.clock()
     local last = StateStore.recentAlerts[eggName]
@@ -84,27 +119,36 @@ function StateStore.shouldAlert(eggName)
     return true
 end
 
+-- ── Full reset (called on cleanup / re-injection) ────────────────────
 function StateStore.reset()
-    StateStore.mainESPActive = false
-    StateStore.autoBestEggActive = false
-    StateStore.autoFarmActive = false
-    StateStore.autoRebirthActive = false
-    StateStore.movementActive = false
-    StateStore.isMinimized = false
-    StateStore.listeningForKey = false
-    StateStore.autoBestEggThread = nil
-    StateStore.autoFarmThread = nil
-    StateStore.autoRebirthThread = nil
-    StateStore.movementHumanoid = nil
-    StateStore.onHistoryUpdated = nil
-    StateStore.onTimeUpdated = nil
-    StateStore.screenGui = nil
+    StateStore.mainESPActive      = false
+    StateStore.autoFarmActive     = false
+    StateStore.autoBestEggActive  = false
+    StateStore.autoRebirthActive  = false
+    StateStore.movementActive     = false
+    StateStore.isMinimized        = false
+    StateStore.listeningForKey    = false
+
+    -- Nil out thread handles (task.cancel is caller's responsibility)
+    StateStore.autoFarmThread     = nil
+    StateStore.autoBestEggThread  = nil
+    StateStore.autoRebirthThread  = nil
+    StateStore.movementHumanoid   = nil
+
+    -- Nil out callbacks
+    StateStore.onHistoryUpdated   = nil
+    StateStore.onTimeUpdated      = nil
+    StateStore.screenGui          = nil
+
+    -- Clear tables (including eggData to prevent stale ESP billboard refs)
     table.clear(StateStore.autoFarmEggs)
     table.clear(StateStore.farmHistory)
     table.clear(StateStore.recentAlerts)
     table.clear(StateStore.missingRebirthEggs)
-    table.clear(StateStore.eggData)  -- clear stale ESP billboard references
+    table.clear(StateStore.eggData)
+    table.clear(StateStore.eggCooldowns)
+    table.clear(StateStore.autoFarmProcessed)
 end
 
 NS.StateStore = StateStore
-NS.State = StateStore  -- ⭐ alias สำหรับ loader REQUIRED check
+NS.State      = StateStore  -- alias required by loader health check

@@ -22,7 +22,9 @@ NS.Config = {
     MovementSpeed = 350,
     HomeDepositWait = 1.3,
     AntiStuckThreshold = 2.2,
-    MovementTimeBuffer = 5.0,   -- Extra seconds added to movement timeout beyond travel estimate
+    MovementTimeBuffer = 5.0,   -- Extra seconds added on top of travel-time estimate
+
+    ESPMaxDistance = 2500,      -- Billboards hidden beyond this stud distance
 
     BestEggName = "cherub",
     AutoEggHoldTime = 2.5,
