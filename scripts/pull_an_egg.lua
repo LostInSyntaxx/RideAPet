@@ -578,7 +578,19 @@ local function getGuiParent()
     local ok, hui = pcall(function() return gethui() end)
     if ok and hui then return hui end
     if pcall(function() return CoreGui:GetChildren() end) then return CoreGui end
-    return LocalPlayer:WaitForChild("PlayerGui")
+    -- Wait for LocalPlayer / PlayerGui with a timeout
+    local player = Players.LocalPlayer
+    if not player then
+        local ok2, lp = pcall(function()
+            return Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
+        end)
+        if ok2 then player = lp end
+    end
+    if player then
+        local ok3, pgui = pcall(function() return player:WaitForChild("PlayerGui", 10) end)
+        if ok3 and pgui then return pgui end
+    end
+    return CoreGui  -- last-resort, never nil
 end
 
 -- Single canonical colour palette
@@ -620,6 +632,10 @@ local function mkpad(p, x, y)
 
 local function buildUI()
     local parent = getGuiParent()
+    if not parent then
+        warn("[LuxuryXHUB] UI: could not resolve a GUI parent — aborting build.")
+        return
+    end
     for _, n in ipairs({"LuxuryXHUB_PullAnEgg","LuxuryXHUB_FloatingBtn"}) do
         local old = parent:FindFirstChild(n)
         if old then old:Destroy() end

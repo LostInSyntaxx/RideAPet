@@ -99,11 +99,23 @@ local UI = {
 local Config, Farm, ESP, Remotes
 
 local function getGuiParent()
+    -- 1. gethui() — executor protected GUI container
     local ok, hui = pcall(function() return gethui() end)
     if ok and hui then return hui end
-    local ok2 = pcall(function() return CoreGui:GetChildren() end)
+    -- 2. CoreGui — available in most executors
+    local ok2, _ = pcall(function() return CoreGui:GetChildren() end)
     if ok2 then return CoreGui end
-    return LocalPlayer:WaitForChild("PlayerGui")
+    -- 3. PlayerGui — wait up to 10s for LocalPlayer to be ready
+    local player = Players.LocalPlayer
+        or Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
+    if player then
+        local ok3, pgui = pcall(function()
+            return player:WaitForChild("PlayerGui", 10)
+        end)
+        if ok3 and pgui then return pgui end
+    end
+    -- 4. Last-resort fallback — should never be reached
+    return CoreGui
 end
 
 -- ── Init ─────────────────────────────────────────────────────────────
@@ -122,6 +134,10 @@ end
 
 function UI.build()
     local parent = getGuiParent()
+    if not parent then
+        warn("[LuxuryXHUB] UI: could not resolve a GUI parent — aborting build.")
+        return
+    end
 
     -- Destroy old GUIs if re-running
     for _, name in ipairs({"LuxuryXHUB_PullAnEgg", "LuxuryXHUB_FloatingBtn"}) do
