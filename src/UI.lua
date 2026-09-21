@@ -253,14 +253,21 @@ end
 function UI.mount()
     local LOGO_URL = "https://yourimageshare.com/ib/K3HDoXCNox.png"
 
-    local old = S.TargetParent:FindFirstChild("RenderedEggsESP_Menu")
+    -- Resolve GUI parent defensively (S.TargetParent set by Services.lua)
+    local guiParent = S.TargetParent or S.GuiParent
+    if not guiParent then
+        warn("[LuxuryXHUB] UI.mount: GUI parent is nil, aborting mount.")
+        return
+    end
+
+    local old = guiParent:FindFirstChild("RenderedEggsESP_Menu")
     if old then pcall(function() old:Destroy() end) end
 
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "RenderedEggsESP_Menu"
     ScreenGui.ResetOnSpawn = false
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    ScreenGui.Parent = S.TargetParent
+    ScreenGui.Parent = guiParent
     StateStore.screenGui = ScreenGui
 
     ScreenGui.Destroying:Connect(function()

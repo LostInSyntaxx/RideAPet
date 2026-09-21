@@ -52,9 +52,20 @@ local function resolveGuiParent()
     end
     local ok2, cg = pcall(function() return game:GetService("CoreGui") end)
     if ok2 and cg then return cg end
-    return S.LocalPlayer:WaitForChild("PlayerGui")
+    -- Wait for LocalPlayer / PlayerGui safely
+    local lp = S.LocalPlayer
+    if not lp then
+        lp = game:GetService("Players").LocalPlayer
+    end
+    if lp then
+        local ok3, pgui = pcall(function() return lp:WaitForChild("PlayerGui", 10) end)
+        if ok3 and pgui then return pgui end
+    end
+    -- Last-resort: CoreGui is always accessible
+    return game:GetService("CoreGui")
 end
-S.GuiParent = resolveGuiParent()
+S.GuiParent  = resolveGuiParent()
+S.TargetParent = S.GuiParent  -- alias used by UI.lua
 
 -- ── queue_on_teleport helper ─────────────────────────────────────────
 S.QueueOnTeleport = (syn and syn.queue_on_teleport)
