@@ -1,12 +1,12 @@
-﻿--[[
+--[[
     LuxuryXHUB -- Universal.lua
     Shared utilities usable across all game modules.
 
     Features:
-      . Anti-AFK          -- Prevents idle kick by simulating input
-      . Low Graphics Mode -- Disables shadows/rendering for better FPS
-      . Rejoin            -- Reconnects to the same server (with script re-injection)
-      . Server Hop        -- Connects to a different public server instance
+      · Anti-AFK          -- Prevents idle kick by simulating input
+      · Low Graphics Mode -- Disables shadows/rendering for better FPS
+      · Rejoin            -- Reconnects to the same server (with script re-injection)
+      · Server Hop        -- Connects to a different public server instance
 
     Usage:
         local Universal = require(path.to.Universal)
@@ -32,6 +32,8 @@ local _afkConn     = nil
 local _origQuality = nil
 local _origShadows = nil
 
+-- ── Internal ────────────────────────────────────────────────────────
+
 local function queueReload()
     pcall(function()
         local qot = (syn and syn.queue_on_teleport)
@@ -48,7 +50,8 @@ local function queueReload()
     end)
 end
 
--- Anti-AFK
+-- ── Anti-AFK ────────────────────────────────────────────────────────
+
 function Universal.setAntiAFK(enable)
     if _afkConn then
         pcall(function() _afkConn:Disconnect() end)
@@ -70,7 +73,8 @@ function Universal.stopAntiAFK()
     Universal.setAntiAFK(false)
 end
 
--- Low Graphics Mode
+-- ── Low Graphics Mode ────────────────────────────────────────────────
+
 function Universal.setLowGraphics(enable)
     if enable then
         _origShadows = Lighting.GlobalShadows
@@ -81,20 +85,14 @@ function Universal.setLowGraphics(enable)
         end)
         pcall(function()
             _origQuality = UserSettings():GetService("UserGameSettings").SavedQualityLevel
-            UserSettings():GetService("UserGameSettings").SavedQualityLevel
-                = Enum.SavedQualitySetting.QualityLevel1
-        end)
-        pcall(function()
-            RunService:Set3dRenderingEnabled(false)
+            UserSettings():GetService("UserGameSettings").SavedQualityLevel =
+                Enum.SavedQualitySetting.QualityLevel1
         end)
     else
         pcall(function()
             Lighting.GlobalShadows = (_origShadows ~= nil) and _origShadows or true
-            Lighting.FogEnd   = 100000
-            Lighting.FogStart = 0
-        end)
-        pcall(function()
-            RunService:Set3dRenderingEnabled(true)
+            Lighting.FogEnd        = 100000
+            Lighting.FogStart      = 0
         end)
         pcall(function()
             if _origQuality then
@@ -105,7 +103,8 @@ function Universal.setLowGraphics(enable)
     end
 end
 
--- Rejoin (same server)
+-- ── Rejoin (same server) ─────────────────────────────────────────────
+
 function Universal.rejoin()
     queueReload()
     task.wait(0.5)
@@ -114,7 +113,8 @@ function Universal.rejoin()
     end)
 end
 
--- Server Hop (different server)
+-- ── Server Hop (different server) ───────────────────────────────────
+
 function Universal.serverHop()
     queueReload()
     local placeId    = game.PlaceId
@@ -127,10 +127,10 @@ function Universal.serverHop()
         end)
         if ok and servers and servers.data then
             for _, srv in ipairs(servers.data) do
-                if srv.id ~= currentJob
-                    and srv.playing ~= nil
-                    and srv.maxPlayers ~= nil
-                    and srv.playing < srv.maxPlayers
+                if  srv.id ~= currentJob
+                and srv.playing   ~= nil
+                and srv.maxPlayers ~= nil
+                and srv.playing    < srv.maxPlayers
                 then
                     local tp_ok = pcall(function()
                         TeleportService:TeleportToPlaceInstance(placeId, srv.id, LocalPlayer)
@@ -139,14 +139,15 @@ function Universal.serverHop()
                 end
             end
         end
-        -- Fallback: brand new server
+        -- Fallback: brand-new server
         pcall(function()
             TeleportService:Teleport(placeId, LocalPlayer)
         end)
     end)
 end
 
--- Cleanup (call from module Unload)
+-- ── Cleanup (call from module Unload) ────────────────────────────────
+
 function Universal.destroy()
     Universal.stopAntiAFK()
     Universal.setLowGraphics(false)

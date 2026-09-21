@@ -1,52 +1,100 @@
 --[[
     LuxuryXHUB — Pull An Egg
-    UI.lua — AAA Dark Dashboard  •  Ribbon Tabs  •  Nested Cards
-    Redesigned: #0e0e0e / #171717 / #1F1F1F palette
+    UI.lua — AAA Dark Dashboard  ·  Ribbon Tabs  ·  Nested Cards
+
+    Fixes vs previous version:
+    · Single consolidated colour palette (C) — no duplicate token tables
+    · Toggle hover closure always reads live `state` (no stale-colour flash)
+    · AutoRevive, AutoBuyGear toggles present on the Farm tab
+    · Ctrl toggle shortcut uses the tracked Runtime connection for clean unload
+    · destroy() disconnects the keyboard shortcut connection
 ]]
 
-local TweenService      = game:GetService("TweenService")
-local UserInputService  = game:GetService("UserInputService")
-local CoreGui           = game:GetService("CoreGui")
-local Players           = game:GetService("Players")
-local LocalPlayer       = Players.LocalPlayer
+local TweenService     = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui          = game:GetService("CoreGui")
+local Players          = game:GetService("Players")
+local LocalPlayer      = Players.LocalPlayer
 
--- ── Palette ──────────────────────────────────────────────────────────
+-- ── Colour Palette ───────────────────────────────────────────────────
+
 local C = {
-    base        = Color3.fromHex("#0e0e0e"),   -- deepest background
-    surface     = Color3.fromHex("#171717"),   -- outer card
-    elevated    = Color3.fromHex("#1F1F1F"),   -- inner card
-    overlay     = Color3.fromHex("#252525"),   -- hovered / active pill
-    border      = Color3.fromHex("#2C2C2C"),   -- subtle card border
-    borderInner = Color3.fromHex("#333333"),
-
-    accent      = Color3.fromRGB(255, 170,  0),  -- amber brand
-    accentDim   = Color3.fromRGB(180, 110,  0),
-    accentGlow  = Color3.fromRGB(255, 200, 80),
-    green       = Color3.fromRGB( 46, 204, 113),
-    blue        = Color3.fromRGB( 52, 152, 219),
-    red         = Color3.fromRGB(231,  76,  60),
-    muted       = Color3.fromRGB(110, 110, 110),
-
-    textPrimary = Color3.fromRGB(240, 242, 245),
-    textSecond  = Color3.fromRGB(163, 163, 163),
-    textMuted   = Color3.fromRGB( 90,  90,  90),
-    white       = Color3.fromRGB(255, 255, 255),
+    -- Backgrounds (darkest → lightest)
+    bg0       = Color3.fromRGB( 17,  17,  17),  -- shell / title bar
+    bg1       = Color3.fromRGB( 31,  31,  31),  -- inner surface
+    bg2       = Color3.fromRGB( 36,  36,  36),  -- outer card
+    bg3       = Color3.fromRGB( 26,  26,  26),  -- inner card
+    -- Borders
+    border0   = Color3.fromRGB( 50,  50,  50),
+    border1   = Color3.fromRGB( 45,  45,  45),
+    border2   = Color3.fromRGB( 38,  38,  38),
+    -- Accent
+    gold      = Color3.fromRGB(255, 185,  50),
+    goldDim   = Color3.fromRGB( 60,  42,   8),
+    goldGlow  = Color3.fromRGB(255, 200,  80),
+    -- Status
+    green     = Color3.fromRGB( 52, 211, 153),
+    greenDim  = Color3.fromRGB( 15,  60,  40),
+    red       = Color3.fromRGB(239,  68,  68),
+    blue      = Color3.fromRGB( 59, 130, 246),
+    -- Text
+    textPri   = Color3.fromRGB(230, 230, 230),
+    textSec   = Color3.fromRGB(130, 130, 130),
+    textMuted = Color3.fromRGB( 70,  70,  70),
+    white     = Color3.fromRGB(255, 255, 255),
 }
 
--- ── Tween helpers ────────────────────────────────────────────────────
-local function tween(obj, props, t)
+-- ── Tween helper ─────────────────────────────────────────────────────
+
+local function tw(obj, props, t)
     TweenService:Create(obj, TweenInfo.new(t or 0.14, Enum.EasingStyle.Quad), props):Play()
 end
 
-local function hover(btn, normalBg, hoverBg)
-    btn.MouseEnter:Connect(function()    tween(btn, {BackgroundColor3 = hoverBg},  0.10) end)
-    btn.MouseLeave:Connect(function()    tween(btn, {BackgroundColor3 = normalBg}, 0.10) end)
-    btn.MouseButton1Down:Connect(function() tween(btn, {BackgroundColor3 = C.accent}, 0.06) end)
-    btn.MouseButton1Up:Connect(function()   tween(btn, {BackgroundColor3 = hoverBg},  0.08) end)
+-- ── Small UI factories ───────────────────────────────────────────────
+
+local function corner(parent, r)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = r or UDim.new(0, 12)
+    c.Parent = parent
+    return c
 end
 
--- ── UI Module ────────────────────────────────────────────────────────
-local UI = { ScreenGui = nil, ToggleGui = nil, MainFrame = nil }
+local function stroke(parent, col, th)
+    local s = Instance.new("UIStroke")
+    s.Color            = col or C.border1
+    s.Thickness        = th  or 1
+    s.ApplyStrokeMode  = Enum.ApplyStrokeMode.Border
+    s.Parent           = parent
+    return s
+end
+
+local function listLayout(parent, paddingPx, dir)
+    local l = Instance.new("UIListLayout")
+    l.Padding       = UDim.new(0, paddingPx or 8)
+    l.SortOrder     = Enum.SortOrder.LayoutOrder
+    l.FillDirection = dir or Enum.FillDirection.Vertical
+    l.Parent        = parent
+    return l
+end
+
+local function padding(parent, x, y)
+    local p = Instance.new("UIPadding")
+    p.PaddingLeft   = UDim.new(0, x or 12)
+    p.PaddingRight  = UDim.new(0, x or 12)
+    p.PaddingTop    = UDim.new(0, y or 10)
+    p.PaddingBottom = UDim.new(0, y or 10)
+    p.Parent        = parent
+    return p
+end
+
+-- ── Module ───────────────────────────────────────────────────────────
+
+local UI = {
+    ScreenGui  = nil,
+    ToggleGui  = nil,
+    MainFrame  = nil,
+    _conns     = {},
+}
 
 local Config, Farm, ESP, Remotes
 
@@ -57,6 +105,8 @@ local function getGuiParent()
     if ok2 then return CoreGui end
     return LocalPlayer:WaitForChild("PlayerGui")
 end
+
+-- ── Init ─────────────────────────────────────────────────────────────
 
 function UI.init(cfg, farmRef, espRef, remsRef)
     Config  = cfg
@@ -69,591 +119,699 @@ end
 -- ────────────────────────────────────────────────────────────────────
 --  BUILD
 -- ────────────────────────────────────────────────────────────────────
+
 function UI.build()
     local parent = getGuiParent()
-    for _, n in ipairs({"LuxuryXHUB_PullAnEgg","LuxuryXHUB_FloatingBtn"}) do
-        local old = parent:FindFirstChild(n)
+
+    -- Destroy old GUIs if re-running
+    for _, name in ipairs({"LuxuryXHUB_PullAnEgg", "LuxuryXHUB_FloatingBtn"}) do
+        local old = parent:FindFirstChild(name)
         if old then old:Destroy() end
     end
 
-    -- ── Root ScreenGui ──────────────────────────────────────────────
-    local sg = Instance.new("ScreenGui")
-    sg.Name            = "LuxuryXHUB_PullAnEgg"
-    sg.ResetOnSpawn    = false
-    sg.ZIndexBehavior  = Enum.ZIndexBehavior.Sibling
+    -- ── ScreenGuis ───────────────────────────────────────────────────
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name           = "LuxuryXHUB_PullAnEgg"
+    screenGui.ResetOnSpawn   = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screenGui.DisplayOrder   = 999
 
-    -- ── Window shell (outer card) ───────────────────────────────────
-    local W_W, W_H = 640, 430
-    local win = Instance.new("Frame")
-    win.Name                = "Window"
-    win.Size                = UDim2.new(0, W_W, 0, W_H)
-    win.Position            = UDim2.new(0.5, -W_W/2, 0.5, -W_H/2)
-    win.BackgroundColor3    = C.surface
-    win.BorderSizePixel     = 0
-    win.ClipsDescendants    = true
-    win.Parent              = sg
+    local toggleGui = Instance.new("ScreenGui")
+    toggleGui.Name           = "LuxuryXHUB_FloatingBtn"
+    toggleGui.ResetOnSpawn   = false
+    toggleGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    toggleGui.DisplayOrder   = 1000
 
-    local winCorner = Instance.new("UICorner")
-    winCorner.CornerRadius  = UDim.new(0, 16)
-    winCorner.Parent        = win
+    -- ── Floating Button ──────────────────────────────────────────────
+    local fabFrame = Instance.new("Frame")
+    fabFrame.Size             = UDim2.new(0, 52, 0, 52)
+    fabFrame.Position         = UDim2.new(0, 16, 0.5, -26)
+    fabFrame.BackgroundColor3 = C.bg1
+    fabFrame.BorderSizePixel  = 0
+    fabFrame.Parent           = toggleGui
+    corner(fabFrame, UDim.new(0, 14))
+    local fabStroke = stroke(fabFrame, C.gold, 1.5)
 
-    local winStroke = Instance.new("UIStroke")
-    winStroke.Color         = C.border
-    winStroke.Thickness     = 1
-    winStroke.Parent        = win
+    local fabBtn = Instance.new("TextButton")
+    fabBtn.Name               = "OpenButton"
+    fabBtn.Size               = UDim2.new(1, 0, 1, 0)
+    fabBtn.BackgroundTransparency = 1
+    fabBtn.Text               = "🐾"
+    fabBtn.TextSize           = 24
+    fabBtn.Font               = Enum.Font.GothamBold
+    fabBtn.Parent             = fabFrame
 
-    -- ── Title Bar ───────────────────────────────────────────────────
-    local titleBar = Instance.new("Frame")
-    titleBar.Name               = "TitleBar"
-    titleBar.Size               = UDim2.new(1, 0, 0, 52)
-    titleBar.BackgroundColor3   = C.base
-    titleBar.BorderSizePixel    = 0
-    titleBar.Parent             = win
-
-    -- top-left rounded only
-    local tbCorner = Instance.new("UICorner")
-    tbCorner.CornerRadius = UDim.new(0, 16)
-    tbCorner.Parent = titleBar
-
-    -- cover bottom corners of titleBar so they don't bleed
-    local tbFill = Instance.new("Frame")
-    tbFill.Size                 = UDim2.new(1, 0, 0, 16)
-    tbFill.Position             = UDim2.new(0, 0, 1, -16)
-    tbFill.BackgroundColor3     = C.base
-    tbFill.BorderSizePixel      = 0
-    tbFill.Parent               = titleBar
-
-    -- Accent left-edge bar
-    local accentBar = Instance.new("Frame")
-    accentBar.Size              = UDim2.new(0, 3, 1, 0)
-    accentBar.BackgroundColor3  = C.accent
-    accentBar.BorderSizePixel   = 0
-    accentBar.Parent            = titleBar
-    Instance.new("UICorner").Parent = accentBar
-
-    -- Logo emoji
-    local logo = Instance.new("TextLabel")
-    logo.Position           = UDim2.new(0, 14, 0, 0)
-    logo.Size               = UDim2.new(0, 32, 1, 0)
-    logo.BackgroundTransparency = 1
-    logo.Text               = "🐾"
-    logo.TextSize           = 20
-    logo.Parent             = titleBar
-
-    -- Title text
-    local titleLbl = Instance.new("TextLabel")
-    titleLbl.Position       = UDim2.new(0, 46, 0, 0)
-    titleLbl.Size           = UDim2.new(0, 160, 1, 0)
-    titleLbl.BackgroundTransparency = 1
-    titleLbl.Text           = "LuxuryXHUB"
-    titleLbl.TextColor3     = C.accent
-    titleLbl.Font           = Enum.Font.GothamBold
-    titleLbl.TextSize       = 16
-    titleLbl.TextXAlignment = Enum.TextXAlignment.Left
-    titleLbl.Parent         = titleBar
-
-    -- Sub-badge
-    local subBadge = Instance.new("Frame")
-    subBadge.Size               = UDim2.new(0, 92, 0, 22)
-    subBadge.Position           = UDim2.new(0, 200, 0.5, -11)
-    subBadge.BackgroundColor3   = C.elevated
-    subBadge.Parent             = titleBar
-    local sbCorner = Instance.new("UICorner")
-    sbCorner.CornerRadius = UDim.new(0, 11)
-    sbCorner.Parent = subBadge
-    local sbStroke = Instance.new("UIStroke")
-    sbStroke.Color = C.border ; sbStroke.Thickness = 1 ; sbStroke.Parent = subBadge
-    local subLbl = Instance.new("TextLabel")
-    subLbl.Size = UDim2.new(1,0,1,0) ; subLbl.BackgroundTransparency = 1
-    subLbl.Text = "Pull An Egg" ; subLbl.TextColor3 = C.textSecond
-    subLbl.Font = Enum.Font.GothamMedium ; subLbl.TextSize = 11
-    subLbl.Parent = subBadge
-
-    -- Window controls (close / minimise)
-    local function makeWinBtn(xOffset, bg, symbol)
-        local b = Instance.new("TextButton")
-        b.Size = UDim2.new(0, 26, 0, 26)
-        b.Position = UDim2.new(1, xOffset, 0.5, -13)
-        b.BackgroundColor3 = bg
-        b.Text = symbol
-        b.TextColor3 = C.white
-        b.Font = Enum.Font.GothamBold
-        b.TextSize = 12
-        b.Parent = titleBar
-        local bc = Instance.new("UICorner")
-        bc.CornerRadius = UDim.new(0, 8)
-        bc.Parent = b
-        return b
-    end
-
-    local closeBtn = makeWinBtn(-36, C.red,             "✕")
-    local hideBtn  = makeWinBtn(-68, Color3.fromHex("#2a2a2a"), "─")
-
-    -- Drag
-    local dragging, dragInput, dragStart, startPos
-    titleBar.InputBegan:Connect(function(inp)
-        if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
-            dragging = true ; dragStart = inp.Position ; startPos = win.Position
-            inp.Changed:Connect(function()
-                if inp.UserInputState == Enum.UserInputState.End then dragging = false end
+    -- FAB drag
+    local fabDragging, fabDragInput, fabDragStart, fabDragPos
+    fabFrame.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1
+        or i.UserInputType == Enum.UserInputType.Touch then
+            fabDragging = true
+            fabDragStart = i.Position
+            fabDragPos   = fabFrame.Position
+            i.Changed:Connect(function()
+                if i.UserInputState == Enum.UserInputState.End then
+                    fabDragging = false
+                end
             end)
         end
     end)
-    titleBar.InputChanged:Connect(function(inp)
-        if inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch then
-            dragInput = inp
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(inp)
-        if inp == dragInput and dragging then
-            local d = inp.Position - dragStart
-            win.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+    fabFrame.InputChanged:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseMovement
+        or i.UserInputType == Enum.UserInputType.Touch then
+            fabDragInput = i
         end
     end)
 
-    -- ── Ribbon Tab Bar ──────────────────────────────────────────────
-    local RIBBON_H = 40
+    -- ── Main Window Shell ────────────────────────────────────────────
+    local shell = Instance.new("Frame")
+    shell.Name             = "MainFrame"
+    shell.Size             = UDim2.new(0, 660, 0, 460)
+    shell.Position         = UDim2.new(0.5, -330, 0.5, -230)
+    shell.BackgroundColor3 = C.bg0
+    shell.BorderSizePixel  = 0
+    shell.ClipsDescendants = true
+    shell.Parent           = screenGui
+    corner(shell, UDim.new(0, 16))
+    stroke(shell, C.border0, 1)
+
+    -- Gold top stripe
+    local stripe = Instance.new("Frame")
+    stripe.Size             = UDim2.new(1, 0, 0, 2)
+    stripe.BackgroundColor3 = C.gold
+    stripe.BorderSizePixel  = 0
+    stripe.ZIndex           = 3
+    stripe.Parent           = shell
+
+    -- Inner surface
+    local main = Instance.new("Frame")
+    main.Size             = UDim2.new(1, -2, 1, -2)
+    main.Position         = UDim2.new(0, 1, 0, 1)
+    main.BackgroundColor3 = C.bg1
+    main.BorderSizePixel  = 0
+    main.ClipsDescendants = true
+    main.Parent           = shell
+    corner(main, UDim.new(0, 15))
+
+    -- ── Title Bar ────────────────────────────────────────────────────
+    local titleBar = Instance.new("Frame")
+    titleBar.Name             = "TitleBar"
+    titleBar.Size             = UDim2.new(1, 0, 0, 56)
+    titleBar.BackgroundColor3 = C.bg0
+    titleBar.BorderSizePixel  = 0
+    titleBar.Parent           = main
+
+    -- Logo box
+    local logoBox = Instance.new("Frame")
+    logoBox.Position         = UDim2.new(0, 14, 0.5, -16)
+    logoBox.Size             = UDim2.new(0, 32, 0, 32)
+    logoBox.BackgroundColor3 = C.goldDim
+    logoBox.BorderSizePixel  = 0
+    logoBox.Parent           = titleBar
+    corner(logoBox, UDim.new(0, 8))
+
+    local logoTxt = Instance.new("TextLabel")
+    logoTxt.Size                 = UDim2.new(1, 0, 1, 0)
+    logoTxt.BackgroundTransparency = 1
+    logoTxt.Text                 = "🐾"
+    logoTxt.TextSize             = 16
+    logoTxt.Font                 = Enum.Font.GothamBold
+    logoTxt.Parent               = logoBox
+
+    local titleLbl = Instance.new("TextLabel")
+    titleLbl.Position           = UDim2.new(0, 54, 0, 10)
+    titleLbl.Size               = UDim2.new(0, 200, 0, 20)
+    titleLbl.BackgroundTransparency = 1
+    titleLbl.Text               = "LuxuryXHUB"
+    titleLbl.TextColor3         = C.goldGlow
+    titleLbl.Font               = Enum.Font.GothamBold
+    titleLbl.TextSize           = 16
+    titleLbl.TextXAlignment     = Enum.TextXAlignment.Left
+    titleLbl.Parent             = titleBar
+
+    local subLbl = Instance.new("TextLabel")
+    subLbl.Position           = UDim2.new(0, 54, 0, 32)
+    subLbl.Size               = UDim2.new(0, 260, 0, 14)
+    subLbl.BackgroundTransparency = 1
+    subLbl.Text               = "Pull An Egg  ·  Automation Suite"
+    subLbl.TextColor3         = C.textMuted
+    subLbl.Font               = Enum.Font.Gotham
+    subLbl.TextSize           = 10
+    subLbl.TextXAlignment     = Enum.TextXAlignment.Left
+    subLbl.Parent             = titleBar
+
+    -- Window control buttons
+    local function winBtn(col, sym, xOff)
+        local b = Instance.new("TextButton")
+        b.Position        = UDim2.new(1, xOff, 0.5, -13)
+        b.Size            = UDim2.new(0, 26, 0, 26)
+        b.BackgroundColor3 = col
+        b.Text            = sym
+        b.TextColor3      = C.white
+        b.TextSize        = 11
+        b.Font            = Enum.Font.GothamBold
+        b.AutoButtonColor = false
+        b.Parent          = titleBar
+        corner(b, UDim.new(0, 6))
+        b.MouseEnter:Connect(function() tw(b, {BackgroundTransparency = 0.3}) end)
+        b.MouseLeave:Connect(function() tw(b, {BackgroundTransparency = 0.0}) end)
+        return b
+    end
+    local closeBtn = winBtn(C.red,                      "✕", -38)
+    local minBtn   = winBtn(Color3.fromRGB(55, 55, 55), "─", -72)
+
+    -- Title bar rule
+    local tbRule = Instance.new("Frame")
+    tbRule.Position         = UDim2.new(0, 0, 1, -1)
+    tbRule.Size             = UDim2.new(1, 0, 0, 1)
+    tbRule.BackgroundColor3 = C.border0
+    tbRule.BorderSizePixel  = 0
+    tbRule.Parent           = titleBar
+
+    -- Window drag
+    local winDragging, winDragInput, winDragStart, winDragPos
+    titleBar.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1
+        or i.UserInputType == Enum.UserInputType.Touch then
+            winDragging  = true
+            winDragStart = i.Position
+            winDragPos   = shell.Position
+            i.Changed:Connect(function()
+                if i.UserInputState == Enum.UserInputState.End then
+                    winDragging = false
+                end
+            end)
+        end
+    end)
+    titleBar.InputChanged:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseMovement
+        or i.UserInputType == Enum.UserInputType.Touch then
+            winDragInput = i
+        end
+    end)
+
+    -- Shared InputChanged for both drags
+    local dragConn = UserInputService.InputChanged:Connect(function(i)
+        if i == winDragInput and winDragging then
+            local d = i.Position - winDragStart
+            shell.Position = UDim2.new(
+                winDragPos.X.Scale, winDragPos.X.Offset + d.X,
+                winDragPos.Y.Scale, winDragPos.Y.Offset + d.Y)
+        end
+        if i == fabDragInput and fabDragging then
+            local d = i.Position - fabDragStart
+            fabFrame.Position = UDim2.new(
+                fabDragPos.X.Scale, fabDragPos.X.Offset + d.X,
+                fabDragPos.Y.Scale, fabDragPos.Y.Offset + d.Y)
+        end
+    end)
+    table.insert(UI._conns, dragConn)
+
+    -- Toggle visibility
+    local function toggleShell()
+        shell.Visible = not shell.Visible
+        tw(fabStroke, {Color = shell.Visible and C.goldGlow or C.gold})
+        tw(fabFrame,  {BackgroundColor3 = shell.Visible and C.goldDim or C.bg1})
+    end
+    fabBtn.MouseButton1Click:Connect(toggleShell)
+    closeBtn.MouseButton1Click:Connect(function()
+        shell.Visible = false
+        tw(fabStroke, {Color = C.gold})
+        tw(fabFrame,  {BackgroundColor3 = C.bg1})
+    end)
+    minBtn.MouseButton1Click:Connect(function()
+        shell.Visible = false
+        tw(fabStroke, {Color = C.gold})
+        tw(fabFrame,  {BackgroundColor3 = C.bg1})
+    end)
+
+    -- Ctrl keyboard shortcut
+    local kbConn = UserInputService.InputBegan:Connect(function(i, gpe)
+        if not gpe and (i.KeyCode == Enum.KeyCode.LeftControl
+                     or i.KeyCode == Enum.KeyCode.RightControl) then
+            toggleShell()
+        end
+    end)
+    table.insert(UI._conns, kbConn)
+
+    -- ── Ribbon Tab Bar ───────────────────────────────────────────────
     local ribbon = Instance.new("Frame")
     ribbon.Name             = "Ribbon"
-    ribbon.Size             = UDim2.new(1, 0, 0, RIBBON_H)
-    ribbon.Position         = UDim2.new(0, 0, 0, 52)
-    ribbon.BackgroundColor3 = C.base
+    ribbon.Position         = UDim2.new(0, 0, 0, 56)
+    ribbon.Size             = UDim2.new(1, 0, 0, 46)
+    ribbon.BackgroundColor3 = C.bg0
     ribbon.BorderSizePixel  = 0
-    ribbon.Parent           = win
+    ribbon.Parent           = main
 
-    local ribbonFill = Instance.new("Frame")
-    ribbonFill.Size               = UDim2.new(1,0,0,1)
-    ribbonFill.Position           = UDim2.new(0,0,1,-1)
-    ribbonFill.BackgroundColor3   = C.border
-    ribbonFill.BorderSizePixel    = 0
-    ribbonFill.Parent             = ribbon
+    local ribbonRow = Instance.new("Frame")
+    ribbonRow.Position           = UDim2.new(0, 14, 0, 4)
+    ribbonRow.Size               = UDim2.new(1, -14, 1, -4)
+    ribbonRow.BackgroundTransparency = 1
+    ribbonRow.Parent             = ribbon
+    listLayout(ribbonRow, 4, Enum.FillDirection.Horizontal)
 
-    local ribbonList = Instance.new("UIListLayout")
-    ribbonList.FillDirection       = Enum.FillDirection.Horizontal
-    ribbonList.VerticalAlignment   = Enum.VerticalAlignment.Center
-    ribbonList.Padding             = UDim.new(0, 4)
-    ribbonList.Parent              = ribbon
+    local ribbonRule = Instance.new("Frame")
+    ribbonRule.Position         = UDim2.new(0, 0, 1, -1)
+    ribbonRule.Size             = UDim2.new(1, 0, 0, 1)
+    ribbonRule.BackgroundColor3 = C.border0
+    ribbonRule.BorderSizePixel  = 0
+    ribbonRule.Parent           = ribbon
 
-    local ribbonPad = Instance.new("UIPadding")
-    ribbonPad.PaddingLeft   = UDim.new(0, 12)
-    ribbonPad.PaddingTop    = UDim.new(0, 6)
-    ribbonPad.PaddingBottom = UDim.new(0, 6)
-    ribbonPad.Parent        = ribbon
+    -- ── Content Area ─────────────────────────────────────────────────
+    local contentArea = Instance.new("Frame")
+    contentArea.Position           = UDim2.new(0, 0, 0, 102)
+    contentArea.Size               = UDim2.new(1, 0, 1, -102)
+    contentArea.BackgroundTransparency = 1
+    contentArea.Parent             = main
 
-    -- ── Content area ────────────────────────────────────────────────
-    local contentY = 52 + RIBBON_H
-    local content = Instance.new("Frame")
-    content.Name            = "Content"
-    content.Size            = UDim2.new(1, 0, 1, -contentY)
-    content.Position        = UDim2.new(0, 0, 0, contentY)
-    content.BackgroundColor3 = C.surface
-    content.BorderSizePixel = 0
-    content.Parent          = win
+    -- ────────────────────────────────────────────────────────────────
+    --  COMPONENT BUILDERS
+    -- ────────────────────────────────────────────────────────────────
 
-    -- ── Tab system ──────────────────────────────────────────────────
-    local tabDefs   = {}  -- {btn, page}
-    local activeTab = nil
-
-    local function setActiveTab(name)
-        for _, td in ipairs(tabDefs) do
-            local isMe = (td.name == name)
-            td.page.Visible = isMe
-            if isMe then
-                tween(td.btn, {BackgroundColor3 = C.accent,   TextColor3 = C.base},    0.12)
-            else
-                tween(td.btn, {BackgroundColor3 = Color3.fromHex("#1a1a1a"), TextColor3 = C.textSecond}, 0.12)
-            end
-        end
-        activeTab = name
+    local function outerCard(parent, h)
+        local o = Instance.new("Frame")
+        o.Size             = UDim2.new(1, 0, 0, h or 66)
+        o.BackgroundColor3 = C.bg2
+        o.BorderSizePixel  = 0
+        o.Parent           = parent
+        corner(o, UDim.new(0, 12))
+        stroke(o, C.border1, 1)
+        return o
     end
 
-    local function addTab(name, icon)
-        local btn = Instance.new("TextButton")
-        btn.Size                = UDim2.new(0, 0, 1, 0)  -- auto-width via padding
-        btn.AutomaticSize       = Enum.AutomaticSize.X
-        btn.BackgroundColor3    = Color3.fromHex("#1a1a1a")
-        btn.Text                = icon .. "  " .. name
-        btn.TextColor3          = C.textSecond
-        btn.Font                = Enum.Font.GothamBold
-        btn.TextSize            = 12
-        btn.Parent              = ribbon
-
-        local btnCorner = Instance.new("UICorner")
-        btnCorner.CornerRadius = UDim.new(0, 8)
-        btnCorner.Parent = btn
-
-        local btnPad = Instance.new("UIPadding")
-        btnPad.PaddingLeft  = UDim.new(0, 12)
-        btnPad.PaddingRight = UDim.new(0, 12)
-        btnPad.Parent = btn
-
-        -- ── Outer card (page wrapper) ────────────────────────────────
-        local outer = Instance.new("Frame")
-        outer.Name              = "Page_" .. name
-        outer.Size              = UDim2.new(1, -24, 1, -20)
-        outer.Position          = UDim2.new(0, 12, 0, 10)
-        outer.BackgroundColor3  = C.elevated
-        outer.BorderSizePixel   = 0
-        outer.Visible           = false
-        outer.Parent            = content
-
-        local outerCorner = Instance.new("UICorner")
-        outerCorner.CornerRadius = UDim.new(0, 14)
-        outerCorner.Parent = outer
-
-        local outerStroke = Instance.new("UIStroke")
-        outerStroke.Color     = C.border
-        outerStroke.Thickness = 1
-        outerStroke.Parent    = outer
-
-        -- Inner scrollable content area
-        local inner = Instance.new("ScrollingFrame")
-        inner.Name                  = "Inner"
-        inner.Size                  = UDim2.new(1, -24, 1, -24)
-        inner.Position              = UDim2.new(0, 12, 0, 12)
-        inner.BackgroundTransparency = 1
-        inner.BorderSizePixel       = 0
-        inner.ScrollBarThickness    = 3
-        inner.ScrollBarImageColor3  = C.accent
-        inner.CanvasSize            = UDim2.new(0, 0, 0, 0)
-        inner.AutomaticCanvasSize   = Enum.AutomaticSize.Y
-        inner.Parent                = outer
-
-        local innerList = Instance.new("UIListLayout")
-        innerList.Padding           = UDim.new(0, 8)
-        innerList.SortOrder         = Enum.SortOrder.LayoutOrder
-        innerList.Parent            = inner
-
-        btn.MouseButton1Click:Connect(function() setActiveTab(name) end)
-
-        local entry = { name = name, btn = btn, page = outer, scroll = inner }
-        table.insert(tabDefs, entry)
-        return inner  -- callers append children to the inner scroll
+    local function innerCard(outer, mx, my)
+        mx = mx or 5 ; my = my or 5
+        local i = Instance.new("Frame")
+        i.Size             = UDim2.new(1, -mx*2, 1, -my*2)
+        i.Position         = UDim2.new(0, mx, 0, my)
+        i.BackgroundColor3 = C.bg3
+        i.BorderSizePixel  = 0
+        i.Parent           = outer
+        corner(i, UDim.new(0, 8))
+        stroke(i, C.border2, 1)
+        return i
     end
 
-    -- ── Component Builders ───────────────────────────────────────────
+    -- Section divider
+    local function sectionLabel(page, text)
+        local row = Instance.new("Frame")
+        row.Size                 = UDim2.new(1, 0, 0, 26)
+        row.BackgroundTransparency = 1
+        row.Parent               = page
 
-    -- Nested card row (inner card inside the outer page card)
-    local function makeCard(parent, heightVal)
-        local card = Instance.new("Frame")
-        card.Size               = UDim2.new(1, 0, 0, heightVal or 50)
-        card.BackgroundColor3   = Color3.fromHex("#242424")
-        card.BorderSizePixel    = 0
-        card.Parent             = parent
+        local line = Instance.new("Frame")
+        line.Position         = UDim2.new(0, 0, 0.5, 0)
+        line.Size             = UDim2.new(1, 0, 0, 1)
+        line.BackgroundColor3 = C.border1
+        line.BorderSizePixel  = 0
+        line.Parent           = row
 
-        local cc = Instance.new("UICorner")
-        cc.CornerRadius = UDim.new(0, 10)
-        cc.Parent = card
+        local bg = Instance.new("Frame")
+        bg.BackgroundColor3 = C.bg1
+        bg.BorderSizePixel  = 0
+        bg.Position         = UDim2.new(0, 0, 0, 4)
+        bg.Size             = UDim2.new(0, #text * 7 + 20, 0, 18)
+        bg.Parent           = row
 
-        local cs = Instance.new("UIStroke")
-        cs.Color     = C.borderInner
-        cs.Thickness = 1
-        cs.Parent    = card
-
-        return card
-    end
-
-    -- Section divider label
-    local function makeSection(parent, text)
         local lbl = Instance.new("TextLabel")
-        lbl.Size                = UDim2.new(1, 0, 0, 22)
+        lbl.Size                 = UDim2.new(1, 0, 1, 0)
         lbl.BackgroundTransparency = 1
-        lbl.Text                = text
-        lbl.TextColor3          = C.accent
-        lbl.Font                = Enum.Font.GothamBold
-        lbl.TextSize            = 11
-        lbl.TextXAlignment      = Enum.TextXAlignment.Left
-        lbl.Parent              = parent
-
-        local pad = Instance.new("UIPadding")
-        pad.PaddingLeft = UDim.new(0, 4)
-        pad.Parent = lbl
-        return lbl
+        lbl.Text                 = "  " .. text
+        lbl.TextColor3           = C.textSec
+        lbl.Font                 = Enum.Font.GothamBold
+        lbl.TextSize             = 9
+        lbl.TextXAlignment       = Enum.TextXAlignment.Left
+        lbl.Parent               = bg
+        return row
     end
 
-    -- Toggle row (nested card with pill toggle)
-    local function makeToggle(parent, label, icon, default, onChange)
-        local card = makeCard(parent, 48)
+    -- Toggle with animated slider knob
+    local function createToggle(page, labelText, defaultState, onToggle)
+        local o   = outerCard(page, 62)
+        local inn = innerCard(o)
 
-        local iconLbl = Instance.new("TextLabel")
-        iconLbl.Position          = UDim2.new(0, 12, 0, 0)
-        iconLbl.Size              = UDim2.new(0, 24, 1, 0)
-        iconLbl.BackgroundTransparency = 1
-        iconLbl.Text              = icon or ""
-        iconLbl.TextSize          = 16
-        iconLbl.Parent            = card
+        local dot = Instance.new("Frame")
+        dot.Position         = UDim2.new(0, 12, 0.5, -4)
+        dot.Size             = UDim2.new(0, 8, 0, 8)
+        dot.BackgroundColor3 = defaultState and C.green or C.textMuted
+        dot.BorderSizePixel  = 0
+        dot.Parent           = inn
+        corner(dot, UDim.new(1, 0))
 
         local lbl = Instance.new("TextLabel")
-        lbl.Position              = UDim2.new(0, icon and 40 or 14, 0, 0)
-        lbl.Size                  = UDim2.new(1, -110, 1, 0)
-        lbl.BackgroundTransparency= 1
-        lbl.Text                  = label
-        lbl.TextColor3            = C.textPrimary
-        lbl.Font                  = Enum.Font.GothamMedium
-        lbl.TextSize              = 12
-        lbl.TextXAlignment        = Enum.TextXAlignment.Left
-        lbl.Parent                = card
+        lbl.Position           = UDim2.new(0, 28, 0, 0)
+        lbl.Size               = UDim2.new(1, -96, 1, 0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text               = labelText
+        lbl.TextColor3         = C.textPri
+        lbl.Font               = Enum.Font.GothamMedium
+        lbl.TextSize           = 13
+        lbl.TextXAlignment     = Enum.TextXAlignment.Left
+        lbl.TextTruncate       = Enum.TextTruncate.AtEnd
+        lbl.Parent             = inn
 
-        -- Status dot
-        local dot = Instance.new("Frame")
-        dot.Size               = UDim2.new(0, 7, 0, 7)
-        dot.Position           = UDim2.new(1, -88, 0.5, -3)
-        dot.BackgroundColor3   = default and C.green or C.muted
-        dot.BorderSizePixel    = 0
-        dot.Parent             = card
-        Instance.new("UICorner").Parent = dot
+        local track = Instance.new("Frame")
+        track.Position         = UDim2.new(1, -60, 0.5, -12)
+        track.Size             = UDim2.new(0, 48, 0, 24)
+        track.BackgroundColor3 = defaultState and C.greenDim or C.bg0
+        track.BorderSizePixel  = 0
+        track.Parent           = inn
+        corner(track, UDim.new(1, 0))
+        local trackS = stroke(track, defaultState and C.green or C.border1, 1)
 
-        -- Pill toggle
-        local pill = Instance.new("TextButton")
-        pill.Position         = UDim2.new(1, -68, 0.5, -12)
-        pill.Size             = UDim2.new(0, 54, 0, 24)
-        pill.BackgroundColor3 = default and C.green or Color3.fromHex("#2a2a2a")
-        pill.Text             = default and "ON" or "OFF"
-        pill.TextColor3       = C.white
-        pill.Font             = Enum.Font.GothamBold
-        pill.TextSize         = 10
-        pill.Parent           = card
+        local knob = Instance.new("Frame")
+        knob.Size             = UDim2.new(0, 16, 0, 16)
+        knob.Position         = defaultState
+            and UDim2.new(1, -20, 0.5, -8)
+            or  UDim2.new(0,   4, 0.5, -8)
+        knob.BackgroundColor3 = defaultState and C.green or C.textMuted
+        knob.BorderSizePixel  = 0
+        knob.Parent           = track
+        corner(knob, UDim.new(1, 0))
 
-        local pillCorner = Instance.new("UICorner")
-        pillCorner.CornerRadius = UDim.new(0, 12)
-        pillCorner.Parent = pill
+        local hit = Instance.new("TextButton")
+        hit.Size                 = UDim2.new(1, 0, 1, 0)
+        hit.BackgroundTransparency = 1
+        hit.Text                 = ""
+        hit.Parent               = inn
 
-        local state = default
-        pill.MouseButton1Click:Connect(function()
+        local state = defaultState
+        hit.MouseButton1Click:Connect(function()
             state = not state
-            pill.BackgroundColor3 = state and C.green or Color3.fromHex("#2a2a2a")
-            pill.Text             = state and "ON" or "OFF"
-            dot.BackgroundColor3  = state and C.green or C.muted
-            if onChange then onChange(state) end
+            tw(knob,  {Position          = state and UDim2.new(1,-20,0.5,-8) or UDim2.new(0,4,0.5,-8),
+                       BackgroundColor3   = state and C.green or C.textMuted})
+            tw(track, {BackgroundColor3  = state and C.greenDim or C.bg0})
+            tw(trackS,{Color             = state and C.green or C.border1})
+            tw(dot,   {BackgroundColor3  = state and C.green or C.textMuted})
+            if onToggle then onToggle(state) end
         end)
 
-        -- Hover reads current BackgroundColor3 so it never flashes a stale colour
-        -- after a toggle state change.
-        pill.MouseEnter:Connect(function()
-            tween(pill, {BackgroundColor3 = state and Color3.fromRGB(56,220,130) or Color3.fromHex("#333333")}, 0.10)
+        -- Hover reads live state so the colour never flashes stale
+        hit.MouseEnter:Connect(function()
+            tw(o, {BackgroundColor3 = Color3.fromRGB(42, 42, 42)})
         end)
-        pill.MouseLeave:Connect(function()
-            tween(pill, {BackgroundColor3 = state and C.green or Color3.fromHex("#2a2a2a")}, 0.10)
+        hit.MouseLeave:Connect(function()
+            tw(o, {BackgroundColor3 = C.bg2})
         end)
 
-        return card
+        return o
     end
 
-    -- Action button (full-width nested card style)
-    local function makeButton(parent, label, icon, accent, onClick)
-        local bg = accent or C.elevated
+    -- Action button with left accent bar
+    local function createButton(page, labelText, accentCol, onClick)
+        local o   = outerCard(page, 52)
+        local inn = Instance.new("TextButton")
+        inn.Size              = UDim2.new(1, -10, 1, -10)
+        inn.Position          = UDim2.new(0, 5, 0, 5)
+        inn.BackgroundColor3  = C.bg3
+        inn.Text              = ""
+        inn.AutoButtonColor   = false
+        inn.BorderSizePixel   = 0
+        inn.Parent            = o
+        corner(inn, UDim.new(0, 8))
+        stroke(inn, C.border2, 1)
+
+        local bar = Instance.new("Frame")
+        bar.Size             = UDim2.new(0, 3, 0.55, 0)
+        bar.Position         = UDim2.new(0, 10, 0.225, 0)
+        bar.BackgroundColor3 = accentCol or C.gold
+        bar.BorderSizePixel  = 0
+        bar.Parent           = inn
+        corner(bar, UDim.new(1, 0))
+
+        local lbl = Instance.new("TextLabel")
+        lbl.Position           = UDim2.new(0, 22, 0, 0)
+        lbl.Size               = UDim2.new(1, -40, 1, 0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text               = labelText
+        lbl.TextColor3         = C.textPri
+        lbl.Font               = Enum.Font.GothamMedium
+        lbl.TextSize           = 13
+        lbl.TextXAlignment     = Enum.TextXAlignment.Left
+        lbl.TextTruncate       = Enum.TextTruncate.AtEnd
+        lbl.Parent             = inn
+
+        local arr = Instance.new("TextLabel")
+        arr.Position           = UDim2.new(1, -26, 0, 0)
+        arr.Size               = UDim2.new(0, 18, 1, 0)
+        arr.BackgroundTransparency = 1
+        arr.Text               = "›"
+        arr.TextColor3         = C.textMuted
+        arr.Font               = Enum.Font.GothamBold
+        arr.TextSize           = 18
+        arr.Parent             = inn
+
+        inn.MouseEnter:Connect(function()
+            tw(inn, {BackgroundColor3 = Color3.fromRGB(38, 38, 38)})
+            tw(lbl, {TextColor3 = accentCol or C.gold})
+            tw(arr, {TextColor3 = accentCol or C.gold})
+        end)
+        inn.MouseLeave:Connect(function()
+            tw(inn, {BackgroundColor3 = C.bg3})
+            tw(lbl, {TextColor3 = C.textPri})
+            tw(arr, {TextColor3 = C.textMuted})
+        end)
+        inn.MouseButton1Click:Connect(function()
+            if onClick then onClick() end
+        end)
+        return o
+    end
+
+    -- ────────────────────────────────────────────────────────────────
+    --  TAB SYSTEM
+    -- ────────────────────────────────────────────────────────────────
+
+    local tabs    = {}
+    local tabBtns = {}
+
+    local function createTab(name, icon, col)
+        local tabCol  = col or C.gold
+        local isFirst = (#tabBtns == 0)
+
         local btn = Instance.new("TextButton")
-        btn.Size              = UDim2.new(1, 0, 0, 44)
-        btn.BackgroundColor3  = bg
-        btn.Text              = (icon and (icon .. "  ") or "") .. label
-        btn.TextColor3        = C.textPrimary
-        btn.Font              = Enum.Font.GothamSemibold
-        btn.TextSize          = 12
-        btn.Parent            = parent
+        btn.Size                 = UDim2.new(0, 0, 1, -8)
+        btn.Position             = UDim2.new(0, 0, 0, 4)
+        btn.AutomaticSize        = Enum.AutomaticSize.X
+        btn.BackgroundColor3     = tabCol
+        btn.BackgroundTransparency = isFirst and 0.88 or 1
+        btn.Text                 = ""
+        btn.AutoButtonColor      = false
+        btn.Parent               = ribbonRow
+        corner(btn, UDim.new(0, 8))
 
-        local bc = Instance.new("UICorner")
-        bc.CornerRadius = UDim.new(0, 10)
-        bc.Parent = btn
+        local bpad = Instance.new("UIPadding")
+        bpad.PaddingLeft   = UDim.new(0, 12)
+        bpad.PaddingRight  = UDim.new(0, 12)
+        bpad.PaddingTop    = UDim.new(0, 4)
+        bpad.PaddingBottom = UDim.new(0, 4)
+        bpad.Parent        = btn
 
-        local bs = Instance.new("UIStroke")
-        bs.Color = C.borderInner ; bs.Thickness = 1 ; bs.Parent = btn
+        local brow = Instance.new("Frame")
+        brow.Size                 = UDim2.new(1, 0, 1, 0)
+        brow.BackgroundTransparency = 1
+        brow.Parent               = btn
+        listLayout(brow, 5, Enum.FillDirection.Horizontal)
 
-        hover(btn, bg, Color3.fromHex("#2e2e2e"))
-        btn.MouseButton1Click:Connect(function() if onClick then onClick() end end)
-        return btn
+        local ic = Instance.new("TextLabel")
+        ic.Size                 = UDim2.new(0, 16, 1, 0)
+        ic.BackgroundTransparency = 1
+        ic.Text                 = icon
+        ic.TextSize             = 13
+        ic.Font                 = Enum.Font.GothamBold
+        ic.TextColor3           = isFirst and tabCol or C.textSec
+        ic.Parent               = brow
+
+        local nm = Instance.new("TextLabel")
+        nm.Size                 = UDim2.new(0, 0, 1, 0)
+        nm.AutomaticSize        = Enum.AutomaticSize.X
+        nm.BackgroundTransparency = 1
+        nm.Text                 = name
+        nm.Font                 = Enum.Font.GothamBold
+        nm.TextSize             = 12
+        nm.TextColor3           = isFirst and tabCol or C.textSec
+        nm.Parent               = brow
+
+        local ind = Instance.new("Frame")
+        ind.Size             = UDim2.new(isFirst and 1 or 0, 0, 0, 2)
+        ind.Position         = UDim2.new(0, 0, 1, -2)
+        ind.BackgroundColor3 = tabCol
+        ind.BorderSizePixel  = 0
+        ind.Parent           = btn
+        corner(ind, UDim.new(1, 0))
+
+        local page = Instance.new("ScrollingFrame")
+        page.Size                  = UDim2.new(1, 0, 1, 0)
+        page.BackgroundTransparency = 1
+        page.BorderSizePixel       = 0
+        page.ScrollBarThickness    = 3
+        page.ScrollBarImageColor3  = C.border1
+        page.CanvasSize            = UDim2.new(0, 0, 0, 0)
+        page.AutomaticCanvasSize   = Enum.AutomaticSize.Y
+        page.Visible               = isFirst
+        page.Parent                = contentArea
+        padding(page, 14, 12)
+        listLayout(page, 8)
+
+        local entry = {name=name, btn=btn, ic=ic, nm=nm, ind=ind, page=page, col=tabCol}
+        tabs[#tabs+1]    = entry
+        tabBtns[#tabBtns+1] = btn
+        return page
+    end
+
+    local function selectTab(targetName)
+        for _, t in ipairs(tabs) do
+            local active = (t.name == targetName)
+            t.page.Visible = active
+            tw(t.btn, {BackgroundTransparency = active and 0.88 or 1})
+            tw(t.ic,  {TextColor3 = active and t.col or C.textSec})
+            tw(t.nm,  {TextColor3 = active and t.col or C.textSec})
+            tw(t.ind, {Size = UDim2.new(active and 1 or 0, 0, 0, 2)})
+        end
+    end
+
+    -- Wire tab buttons after all tabs are created (done below)
+    local function wireTabButtons()
+        for _, t in ipairs(tabs) do
+            local name = t.name
+            t.btn.MouseButton1Click:Connect(function() selectTab(name) end)
+        end
     end
 
     -- ────────────────────────────────────────────────────────────────
-    --  TAB 1 — Auto Farm
+    --  TAB 1 — Farm
     -- ────────────────────────────────────────────────────────────────
-    local farmScroll = addTab("Farm", "🌾")
+    local farmPage = createTab("Farm", "🌾")
 
-    makeSection(farmScroll, "AUTOMATION")
+    sectionLabel(farmPage, "AUTOMATION")
 
-    makeToggle(farmScroll, "Auto Train", "💪", Config.AutoTrain, function(s)
+    createToggle(farmPage, "Auto Train", Config.AutoTrain, function(s)
         Config.AutoTrain = s
         if s then Farm.startAutoTrain() else Farm.stopAutoTrain() end
     end)
 
-    makeToggle(farmScroll, "Auto Sell Friends", "💰", Config.AutoSell, function(s)
+    createToggle(farmPage, "Auto Sell Friends", Config.AutoSell, function(s)
         Config.AutoSell = s
         if s then Farm.startAutoSell() else Farm.stopAutoSell() end
     end)
 
-    makeToggle(farmScroll, "Auto Rebirth", "🔄", Config.AutoRebirth, function(s)
+    createToggle(farmPage, "Auto Rebirth", Config.AutoRebirth, function(s)
         Config.AutoRebirth = s
         if s then Farm.startAutoRebirth() else Farm.stopAutoRebirth() end
     end)
 
-    makeToggle(farmScroll, "Auto Buy Dumbbells", "🏋️", Config.AutoBuyDumbell, function(s)
+    createToggle(farmPage, "Auto Buy Dumbbells", Config.AutoBuyDumbell, function(s)
         Config.AutoBuyDumbell = s
         if s then Farm.startAutoBuyDumbell() else Farm.stopAutoBuyDumbell() end
     end)
 
-    makeToggle(farmScroll, "Auto Upgrade Carry Limit", "🎒", Config.AutoUpgradeCarry, function(s)
+    createToggle(farmPage, "Auto Upgrade Carry Limit", Config.AutoUpgradeCarry, function(s)
         Config.AutoUpgradeCarry = s
         if s then Farm.startAutoUpgradeCarry() else Farm.stopAutoUpgradeCarry() end
     end)
 
-    makeToggle(farmScroll, "Auto Buy Gear", "⚙️", Config.AutoBuyGear, function(s)
+    createToggle(farmPage, "Auto Buy Gear", Config.AutoBuyGear, function(s)
         Config.AutoBuyGear = s
         if s then Farm.startAutoBuyGear() else Farm.stopAutoBuyGear() end
     end)
 
-    makeSection(farmScroll, "EGG PULLING")
+    sectionLabel(farmPage, "EGG PULLING")
 
-    makeToggle(farmScroll, "Auto Pull Egg (Target Tier)", "🥚", Config.AutoPullEgg, function(s)
+    createToggle(farmPage, "Auto Pull Egg (Target Tier)", Config.AutoPullEgg, function(s)
         Config.AutoPullEgg = s
         if s then Farm.startAutoPullEgg() else Farm.stopAutoPullEgg() end
     end)
 
-    makeToggle(farmScroll, "Safe Fly / Boss Hover", "🛡️", Config.SafeHover, function(s)
+    createToggle(farmPage, "Safe Fly / Boss Hover", Config.SafeHover, function(s)
         Config.SafeHover = s
         if not s then Farm.setFloat(false) ; Farm.setNoclip(false) end
     end)
 
-    makeSection(farmScroll, "SAFETY")
+    sectionLabel(farmPage, "SAFETY")
 
-    makeToggle(farmScroll, "Auto Revive (Instant)", "💖", Config.AutoRevive, function(s)
+    createToggle(farmPage, "Auto Revive (Instant)", Config.AutoRevive, function(s)
         Config.AutoRevive = s
     end)
 
     -- ────────────────────────────────────────────────────────────────
-    --  TAB 2 — Eggs & ESP
+    --  TAB 2 — ESP
     -- ────────────────────────────────────────────────────────────────
-    local eggScroll = addTab("ESP", "🥚")
+    local espPage = createTab("ESP", "🥚")
 
-    makeSection(eggScroll, "VISUALS")
+    sectionLabel(espPage, "VISUALS")
 
-    makeToggle(eggScroll, "Egg 3D Billboard ESP", "👁️", Config.EggESP, function(s)
+    createToggle(espPage, "Egg 3D Billboard ESP", Config.EggESP, function(s)
         Config.EggESP = s
         ESP.setEnabled(s)
     end)
 
-    makeSection(eggScroll, "TELEPORT TO TIER")
+    sectionLabel(espPage, "TELEPORT TO TIER")
 
     for _, tier in ipairs(Config.TIERS) do
-        local col = Config.TIER_COLORS[tier] or C.textSecond
-        local btn = makeButton(eggScroll, tier, "📍", Color3.fromHex("#1e1e1e"), function()
+        local col = Config.TIER_COLORS[tier] or C.textSec
+        local btn = createButton(espPage, tier, col, function()
             Config.TargetEggTier = tier
             Farm.teleportToTier(tier)
         end)
-        -- colour the tier label differently using a child label override
-        local inner = btn:FindFirstChildWhichIsA("TextLabel")
-        -- Add a colour swatch dot
+        -- Tier colour swatch dot
         local dot = Instance.new("Frame")
         dot.Size             = UDim2.new(0, 8, 0, 8)
-        dot.Position         = UDim2.new(1, -20, 0.5, -4)
+        dot.Position         = UDim2.new(1, -22, 0.5, -4)
         dot.BackgroundColor3 = col
         dot.BorderSizePixel  = 0
         dot.Parent           = btn
-        local dc = Instance.new("UICorner") ; dc.CornerRadius = UDim.new(0,4) ; dc.Parent = dot
+        local dc = Instance.new("UICorner")
+        dc.CornerRadius = UDim.new(0, 4)
+        dc.Parent = dot
     end
 
     -- ────────────────────────────────────────────────────────────────
-    --  TAB 3 — Rewards & Misc
+    --  TAB 3 — Misc
     -- ────────────────────────────────────────────────────────────────
-    local miscScroll = addTab("Misc", "⚙️")
+    local miscPage = createTab("Misc", "⚙️")
 
-    makeSection(miscScroll, "REWARDS")
+    sectionLabel(miscPage, "REWARDS")
 
-    makeButton(miscScroll, "Claim Daily & Group Rewards", "🎁", Color3.fromHex("#1b2e22"), function()
+    createButton(miscPage, "Claim Daily & Group Rewards", C.green, function()
         Remotes.claimDailyReward()
         Remotes.claimGroupReward()
     end)
 
-    makeButton(miscScroll, "Sell All Friends (Manual)", "💰", Color3.fromHex("#1a2233"), function()
+    createButton(miscPage, "Sell All Friends (Manual)", C.gold, function()
         Remotes.sellAll()
     end)
 
-    makeSection(miscScroll, "TELEPORT")
+    sectionLabel(miscPage, "TELEPORT")
 
-    makeButton(miscScroll, "Teleport to Spawn",         "🏠", Color3.fromHex("#1e1e1e"), function() Farm.teleportToSpawn() end)
-    makeButton(miscScroll, "Teleport to Sell Shop",     "🏪", Color3.fromHex("#1e1e1e"), function() Farm.teleportToShop("Sell") end)
-    makeButton(miscScroll, "Teleport to Strength Shop", "⚡", Color3.fromHex("#1e1e1e"), function() Farm.teleportToShop("ShopSpeed") end)
-    makeButton(miscScroll, "Teleport to Carry Shop",    "🎒", Color3.fromHex("#1e1e1e"), function() Farm.teleportToShop("ShopCarry") end)
+    createButton(miscPage, "Teleport to Spawn",         C.gold, function() Farm.teleportToSpawn() end)
+    createButton(miscPage, "Teleport to Sell Shop",     C.gold, function() Farm.teleportToShop("Sell") end)
+    createButton(miscPage, "Teleport to Strength Shop", C.gold, function() Farm.teleportToShop("ShopSpeed") end)
+    createButton(miscPage, "Teleport to Carry Shop",    C.gold, function() Farm.teleportToShop("ShopCarry") end)
 
-    -- ── Activate first tab ───────────────────────────────────────────
-    if #tabDefs > 0 then
-        setActiveTab(tabDefs[1].name)
-    end
+    -- ── Wire tabs & activate first ───────────────────────────────────
+    wireTabButtons()
+    if #tabs > 0 then selectTab(tabs[1].name) end
 
-    -- ── Close / Hide buttons ─────────────────────────────────────────
-    closeBtn.MouseButton1Click:Connect(function()
-        win.Visible = false
-    end)
-    hideBtn.MouseButton1Click:Connect(function()
-        win.Visible = false
-    end)
+    -- ── Mount ─────────────────────────────────────────────────────────
+    screenGui.Parent = parent
+    toggleGui.Parent = parent
 
-    -- ── Floating toggle button (draggable) ───────────────────────────
-    local tg = Instance.new("ScreenGui")
-    tg.Name           = "LuxuryXHUB_FloatingBtn"
-    tg.ResetOnSpawn   = false
-    tg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
-    local fab = Instance.new("TextButton")
-    fab.Name              = "FAB"
-    fab.Size              = UDim2.new(0, 48, 0, 48)
-    fab.Position          = UDim2.new(0, 18, 0.5, -24)
-    fab.BackgroundColor3  = C.surface
-    fab.Text              = "🐾"
-    fab.TextSize          = 20
-    fab.Parent            = tg
-
-    local fabCorner = Instance.new("UICorner")
-    fabCorner.CornerRadius = UDim.new(0, 24)
-    fabCorner.Parent = fab
-
-    local fabStroke = Instance.new("UIStroke")
-    fabStroke.Color = C.accent ; fabStroke.Thickness = 2 ; fabStroke.Parent = fab
-
-    fab.MouseButton1Click:Connect(function()
-        win.Visible = not win.Visible
-        fabStroke.Color = win.Visible and C.accentGlow or C.accent
-    end)
-
-    -- FAB drag
-    local fDragging, fDragInput, fStart, fPos
-    fab.InputBegan:Connect(function(inp)
-        if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
-            fDragging = true ; fStart = inp.Position ; fPos = fab.Position
-            inp.Changed:Connect(function()
-                if inp.UserInputState == Enum.UserInputState.End then fDragging = false end
-            end)
-        end
-    end)
-    fab.InputChanged:Connect(function(inp)
-        if inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch then
-            fDragInput = inp
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(inp)
-        if inp == fDragInput and fDragging then
-            local d = inp.Position - fStart
-            fab.Position = UDim2.new(fPos.X.Scale, fPos.X.Offset + d.X, fPos.Y.Scale, fPos.Y.Offset + d.Y)
-        end
-    end)
-
-    -- Global keyboard shortcut (Ctrl toggles)
-    UserInputService.InputBegan:Connect(function(inp, gpe)
-        if not gpe and (inp.KeyCode == Enum.KeyCode.LeftControl or inp.KeyCode == Enum.KeyCode.RightControl) then
-            win.Visible = not win.Visible
-            fabStroke.Color = win.Visible and C.accentGlow or C.accent
-        end
-    end)
-
-    -- ── Mount ────────────────────────────────────────────────────────
-    sg.Parent  = parent
-    tg.Parent  = parent
-    UI.ScreenGui  = sg
-    UI.ToggleGui  = tg
-    UI.MainFrame  = win
+    UI.ScreenGui = screenGui
+    UI.ToggleGui = toggleGui
+    UI.MainFrame = shell
 end
 
+-- ── Destroy ───────────────────────────────────────────────────────────
+
 function UI.destroy()
-    if UI.ScreenGui  then pcall(function() UI.ScreenGui:Destroy()  end) end
-    if UI.ToggleGui  then pcall(function() UI.ToggleGui:Destroy()  end) end
+    for _, conn in ipairs(UI._conns) do
+        pcall(function() conn:Disconnect() end)
+    end
+    UI._conns = {}
+    if UI.ScreenGui then pcall(function() UI.ScreenGui:Destroy() end) end
+    if UI.ToggleGui then pcall(function() UI.ToggleGui:Destroy() end) end
+    UI.ScreenGui = nil
+    UI.ToggleGui = nil
+    UI.MainFrame = nil
 end
 
 return UI
