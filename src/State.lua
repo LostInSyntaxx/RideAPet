@@ -63,6 +63,9 @@ local StateStore = {
 
     -- Connection tracker
     _connections        = {},
+
+    -- UI slider counter (unique IDs for slider instances)
+    _sliderCounter      = 0,
 }
 
 -- ── Track a RBXScriptConnection for bulk cleanup ─────────────────────
