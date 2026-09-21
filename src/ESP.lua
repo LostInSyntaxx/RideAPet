@@ -34,62 +34,115 @@ function ESP.createBillboard(egg)
     if not data then return end
     if data.NameBillboard and data.NameBillboard.Parent then return end
 
-    local billboard = Instance.new("BillboardGui")
-    billboard.Name        = "EggESP_Info"
-    billboard.Size        = UDim2.new(0, 180, 0, 42)
-    billboard.StudsOffset = Vector3.new(0, 3.5, 0)
-    billboard.AlwaysOnTop = true
-    billboard.MaxDistance = AppConfig.ESPMaxDistance or 2500
-    billboard.Enabled     = false
-    billboard.Parent      = egg
-
     local eggColor = ESP.getColor(egg.Name)
 
-    local nameLabel = Instance.new("TextLabel")
-    nameLabel.Name                 = "EggName"
-    nameLabel.Size                 = UDim2.new(1, 0, 0, 22)
-    nameLabel.BackgroundTransparency = 1
-    nameLabel.Text                 = egg.Name
-    nameLabel.TextColor3           = eggColor
-    nameLabel.TextStrokeTransparency = 0.2
-    nameLabel.TextStrokeColor3     = Color3.fromRGB(0, 0, 0)
-    nameLabel.TextSize             = AppConfig.ESPNameSize
-    nameLabel.Font                 = Enum.Font.GothamBold
-    nameLabel.Parent               = billboard
+    -- Root BillboardGui
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name          = "EggESP_Info"
+    billboard.Size          = UDim2.new(0, 160, 0, 52)
+    billboard.StudsOffset   = Vector3.new(0, 4.5, 0)
+    billboard.AlwaysOnTop   = true
+    billboard.MaxDistance   = AppConfig.ESPMaxDistance or 2500
+    billboard.Enabled       = false
+    billboard.LightInfluence = 0
+    billboard.Parent        = egg
 
+    -- ── Backdrop card ────────────────────────────────────────────────
+    local card = Instance.new("Frame")
+    card.Name                    = "Card"
+    card.Size                    = UDim2.new(1, 0, 1, 0)
+    card.BackgroundColor3        = Color3.fromRGB(8, 8, 12)
+    card.BackgroundTransparency  = 0.22
+    card.BorderSizePixel         = 0
+    card.Parent                  = billboard
+
+    local cardCorner = Instance.new("UICorner")
+    cardCorner.CornerRadius = UDim.new(0, 8)
+    cardCorner.Parent       = card
+
+    -- Coloured border (tier colour)
+    local cardStroke = Instance.new("UIStroke")
+    cardStroke.Color       = eggColor
+    cardStroke.Thickness   = 1.5
+    cardStroke.Transparency = 0.15
+    cardStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    cardStroke.Parent      = card
+
+    -- Subtle left accent bar
+    local accent = Instance.new("Frame")
+    accent.Size             = UDim2.new(0, 3, 1, -8)
+    accent.Position         = UDim2.new(0, 0, 0, 4)
+    accent.BackgroundColor3 = eggColor
+    accent.BackgroundTransparency = 0.1
+    accent.BorderSizePixel  = 0
+    accent.Parent           = card
+    local accentCorner = Instance.new("UICorner")
+    accentCorner.CornerRadius = UDim.new(1, 0)
+    accentCorner.Parent = accent
+
+    -- ── Icon (egg emoji) ──────────────────────────────────────────────
+    local icon = Instance.new("TextLabel")
+    icon.Name                    = "Icon"
+    icon.Position                = UDim2.new(0, 7, 0, 0)
+    icon.Size                    = UDim2.new(0, 22, 1, 0)
+    icon.BackgroundTransparency  = 1
+    icon.Text                    = "🥚"
+    icon.TextSize                = 14
+    icon.Font                    = Enum.Font.GothamBold
+    icon.Parent                  = card
+
+    -- ── Egg name ─────────────────────────────────────────────────────
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Name                   = "EggName"
+    nameLabel.Position               = UDim2.new(0, 32, 0, 5)
+    nameLabel.Size                   = UDim2.new(1, -36, 0, 22)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text                   = egg.Name
+    nameLabel.TextColor3             = eggColor
+    nameLabel.TextStrokeTransparency = 0.3
+    nameLabel.TextStrokeColor3       = Color3.fromRGB(0, 0, 0)
+    nameLabel.TextSize               = AppConfig.ESPNameSize or 13
+    nameLabel.Font                   = Enum.Font.GothamBold
+    nameLabel.TextXAlignment         = Enum.TextXAlignment.Left
+    nameLabel.TextTruncate           = Enum.TextTruncate.AtEnd
+    nameLabel.Parent                 = card
+
+    -- ── Distance ─────────────────────────────────────────────────────
     local distLabel = Instance.new("TextLabel")
-    distLabel.Name                 = "Distance"
-    distLabel.Position             = UDim2.new(0, 0, 0, 22)
-    distLabel.Size                 = UDim2.new(1, 0, 0, 16)
+    distLabel.Name                   = "Distance"
+    distLabel.Position               = UDim2.new(0, 32, 0, 27)
+    distLabel.Size                   = UDim2.new(1, -36, 0, 16)
     distLabel.BackgroundTransparency = 1
-    distLabel.Text                 = "0 studs"
-    distLabel.TextColor3           = Color3.fromRGB(220, 225, 235)
-    distLabel.TextStrokeTransparency = 0.4
-    distLabel.TextStrokeColor3     = Color3.fromRGB(0, 0, 0)
-    distLabel.TextSize             = AppConfig.ESPDistanceSize
-    distLabel.Font                 = Enum.Font.GothamMedium
-    distLabel.Parent               = billboard
+    distLabel.Text                   = "0 studs"
+    distLabel.TextColor3             = Color3.fromRGB(185, 190, 210)
+    distLabel.TextStrokeTransparency = 0.5
+    distLabel.TextStrokeColor3       = Color3.fromRGB(0, 0, 0)
+    distLabel.TextSize               = AppConfig.ESPDistanceSize or 11
+    distLabel.Font                   = Enum.Font.GothamMedium
+    distLabel.TextXAlignment         = Enum.TextXAlignment.Left
+    distLabel.Parent                 = card
 
     data.NameBillboard = billboard
 end
 
 -- ── Billboard distance update ────────────────────────────────────────
--- Skips calculation when egg is beyond MaxDistance to reduce load.
 function ESP.updateBillboard(egg)
     local data = StateStore.eggData[egg]
     if not data or not data.NameBillboard or not data.NameBillboard.Parent then return end
 
-    local billboard  = data.NameBillboard
-    local maxDist    = AppConfig.ESPMaxDistance or 2500
-    local d          = Utils.getDistanceToTarget(egg)
+    local billboard = data.NameBillboard
+    local maxDist   = AppConfig.ESPMaxDistance or 2500
+    local d         = Utils.getDistanceToTarget(egg)
 
     if d > maxDist then
         billboard.Enabled = false
         return
     end
 
-    local nameLabel = billboard:FindFirstChild("EggName")
-    local distLabel = billboard:FindFirstChild("Distance")
+    -- Labels now live inside the Card frame
+    local card      = billboard:FindFirstChild("Card")
+    local nameLabel = card and card:FindFirstChild("EggName")
+    local distLabel = card and card:FindFirstChild("Distance")
     if nameLabel then nameLabel.Text = egg.Name end
     if distLabel then
         distLabel.Text = (d == math.huge) and "?" or string.format("%d studs", math.floor(d + 0.5))
